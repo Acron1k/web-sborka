@@ -68,3 +68,20 @@ export async function toggleClaim(itemId: string, familyId: string, claimed: boo
     if (error) throw error;
   }
 }
+
+export async function fetchPersonalItems(tripId: string, familyId: string): Promise<Item[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('trip_id', tripId)
+    .eq('list_type', 'personal')
+    .eq('family_id', familyId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function togglePersonalDone(itemId: string, done: boolean): Promise<void> {
+  const { error } = await supabase.from('items').update({ is_done: done }).eq('id', itemId);
+  if (error) throw error;
+}

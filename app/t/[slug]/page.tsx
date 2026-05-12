@@ -8,6 +8,8 @@ import { fetchTripBySlug } from '@/lib/queries/trip';
 import { useCurrentFamily } from '@/lib/session-client';
 import { FamilyBadge } from '@/components/family-badge';
 import { ItemsList } from '@/components/items/items-list';
+import { PersonalList } from '@/components/items/personal-list';
+import { useTripRealtime } from '@/lib/realtime';
 import Link from 'next/link';
 
 export default function TripPage() {
@@ -21,6 +23,8 @@ export default function TripPage() {
     queryFn: () => fetchTripBySlug(slug),
     enabled: familyId !== 'loading',
   });
+
+  useTripRealtime(data?.trip.id ?? '');
 
   if (familyId === 'loading' || !data) return <main className="p-4">Загрузка…</main>;
 
@@ -57,7 +61,9 @@ export default function TripPage() {
           />
         </TabsContent>
         <TabsContent value="personal" className="p-4">
-          <p className="text-slate-500">Личный список — будет в Task 9</p>
+          {myFamily && (
+            <PersonalList tripId={data.trip.id} familyId={myFamily.id} familyName={myFamily.name} />
+          )}
         </TabsContent>
         <TabsContent value="food" className="p-4">
           <p className="text-slate-500">Продукты — будет в Task 10</p>
