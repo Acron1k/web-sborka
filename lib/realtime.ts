@@ -21,6 +21,7 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
         { event: '*', schema: 'public', table: 'items', filter: `trip_id=eq.${tripId}` } as never,
         () => {
           qc.invalidateQueries({ queryKey: ['items', tripId] });
+          qc.invalidateQueries({ queryKey: ['packing', tripId] });
         }
       )
       .on(
@@ -28,6 +29,7 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
         { event: '*', schema: 'public', table: 'item_claims' } as never,
         () => {
           qc.invalidateQueries({ queryKey: ['claims', tripId] });
+          qc.invalidateQueries({ queryKey: ['packing', tripId] });
         }
       )
       .on(

@@ -37,6 +37,7 @@ export type ItemClaim = {
   item_id: string;
   family_id: string;
   claimed_at: string;
+  is_packed: boolean;
 };
 
 export type Database = {
@@ -62,7 +63,11 @@ export type Database = {
       };
       item_claims: {
         Row: ItemClaim;
-        Insert: Omit<ItemClaim, 'id' | 'claimed_at'> & { id?: string; claimed_at?: string };
+        Insert: Omit<ItemClaim, 'id' | 'claimed_at' | 'is_packed'> & {
+          id?: string;
+          claimed_at?: string;
+          is_packed?: boolean;
+        };
         Update: Partial<ItemClaim>;
         Relationships: [];
       };

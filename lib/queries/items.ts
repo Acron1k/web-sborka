@@ -107,3 +107,36 @@ export async function togglePersonalDone(itemId: string, done: boolean): Promise
   const { error } = await supabase.from('items').update({ is_done: done }).eq('id', itemId);
   if (error) throw error;
 }
+
+export async function fetchClaimedItemsForFamily(
+  tripId: string,
+  familyId: string
+): Promise<{ items: Item[]; myClaims: ItemClaim[]; allClaims: ItemClaim[] }> {
+  // Все items этой поездки (нужны и для resolve title/qty/category, и для отсечки claims по trip).
+  const { data: items, error: itemsErr } = await supabase
+    .from('items')
+    .select('*')
+    .eq('trip_id', tripId);
+  if (itemsErr) throw itemsErr;
+  const allItems = items ?? [];
+  const itemIds = allItems.map(i => i.id);
+  if (itemIds.length === 0) return { items: [], myClaims: [], allClaims: [] };
+
+  const { data: claims, error: claimsErr } = await supabase
+    .from('item_claims')
+    .select('*')
+    .in('item_id', itemIds);
+  if (claimsErr) throw claimsErr;
+  const allClaims = claims ?? [];
+  const myClaims = allClaims.filter(c => c.family_id === familyId);
+
+  return { items: allItems, myClaims, allClaims };
+}
+
+export async function toggleClaimPacked(claimId: string, packed: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('item_claims')
+    .update({ is_packed: packed })
+    .eq('id', claimId);
+  if (error) throw error;
+}

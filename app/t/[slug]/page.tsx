@@ -7,7 +7,7 @@ import { fetchTripBySlug } from '@/lib/queries/trip';
 import { useCurrentFamily } from '@/lib/session-client';
 import { FamilyBadge } from '@/components/family-badge';
 import { ItemsList } from '@/components/items/items-list';
-import { PersonalList } from '@/components/items/personal-list';
+import { PackingList } from '@/components/items/packing-list';
 import { FoodList } from '@/components/items/food-list';
 import { useTripRealtime } from '@/lib/realtime';
 import { LiveDot } from '@/components/live-dot';
@@ -58,10 +58,11 @@ export default function TripPage() {
     }
     if (tab === 'personal' && myFamily) {
       return (
-        <PersonalList
+        <PackingList
           tripId={data.trip.id}
           familyId={myFamily.id}
           familyName={myFamily.name}
+          families={data.families}
         />
       );
     }
