@@ -123,8 +123,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
   }
   html {
     @apply font-sans;
+  }
+  button, [role="button"] {
+    user-select: none;
+  }
+  main {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
