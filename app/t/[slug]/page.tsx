@@ -9,16 +9,18 @@ import { FamilyBadge } from '@/components/family-badge';
 import { ItemsList } from '@/components/items/items-list';
 import { PackingList } from '@/components/items/packing-list';
 import { FoodList } from '@/components/items/food-list';
+import { SuggestionsList } from '@/components/items/suggestions-list';
 import { useTripRealtime } from '@/lib/realtime';
 import { LiveDot } from '@/components/live-dot';
 import Link from 'next/link';
 
-type Tab = 'common' | 'personal' | 'food';
+type Tab = 'common' | 'personal' | 'food' | 'ai';
 
 const TABS: { id: Tab; num: string; label: string; sublabel: string }[] = [
   { id: 'common', num: '01', label: 'Общее', sublabel: 'на всех' },
   { id: 'personal', num: '02', label: 'Личное', sublabel: 'твоё' },
-  { id: 'food', num: '03', label: 'Продукты', sublabel: 'еда и питьё' },
+  { id: 'food', num: '03', label: 'Еда', sublabel: 'продукты и питьё' },
+  { id: 'ai', num: '04', label: 'ИИ', sublabel: 'подсказки' },
 ];
 
 export default function TripPage() {
@@ -75,6 +77,15 @@ export default function TripPage() {
         />
       );
     }
+    if (tab === 'ai') {
+      return (
+        <SuggestionsList
+          tripId={data.trip.id}
+          families={data.families}
+          myFamilyId={familyId as string}
+        />
+      );
+    }
     return null;
   };
 
@@ -128,7 +139,7 @@ export default function TripPage() {
                   }`}
                 >
                   <span className="mono-tag block mb-0.5">{t.num}</span>
-                  <span className="text-sm tracking-tight">{t.label}</span>
+                  <span className="text-xs sm:text-sm tracking-tight">{t.label}</span>
                 </button>
               );
             })}

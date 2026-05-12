@@ -5,9 +5,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { FamilyBadge } from '@/components/family-badge';
-import { supabase } from '@/lib/supabase/client';
 import { fetchTripBySlug } from '@/lib/queries/trip';
 import { fetchItems, fetchClaims } from '@/lib/queries/items';
+import { bulkInsertSuggestions } from '@/lib/queries/ai-suggestions';
 import { useCurrentFamily } from '@/lib/session-client';
 import { clearFamilyCookie } from '@/lib/session';
 import { AIBlock } from '@/components/settings/ai-block';
@@ -75,24 +75,18 @@ export default function SettingsPage() {
   };
 
   const importSuggestions = async (sugs: AISuggestion[]) => {
-    const myId = familyId as string;
-    const payload = sugs.map(s => ({
-      trip_id: trip.id,
-      list_type: s.list,
-      title: s.title,
-      qty: s.qty ?? null,
-      category: s.list === 'food' ? (s.category ?? 'other') : null,
-      family_id: s.list === 'personal' ? myId : null,
-      created_by_family_id: myId,
-      notes: null,
-      is_done: false,
-    }));
-    const { error } = await supabase.from('items').insert(payload);
-    if (error) {
-      console.error(error);
-      return;
-    }
-    qc.invalidateQueries({ queryKey: ['items'] });
+    await bulkInsertSuggestions(
+      trip.id,
+      sugs.map(s => ({
+        list_type: s.list,
+        title: s.title,
+        qty: s.qty ?? null,
+        category: s.list === 'food' ? (s.category ?? null) : null,
+        importance: s.importance,
+        reason: s.reason ?? null,
+      }))
+    );
+    qc.invalidateQueries({ queryKey: ['suggestions', trip.id] });
   };
 
   const dateLine =

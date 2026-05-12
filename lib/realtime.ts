@@ -39,6 +39,13 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
           qc.invalidateQueries({ queryKey: ['trip'] });
         }
       )
+      .on(
+        'postgres_changes' as never,
+        { event: '*', schema: 'public', table: 'ai_suggestions', filter: `trip_id=eq.${tripId}` } as never,
+        () => {
+          qc.invalidateQueries({ queryKey: ['suggestions', tripId] });
+        }
+      )
       .subscribe((subStatus) => {
         if (subStatus === 'SUBSCRIBED') setStatus('live');
         else if (subStatus === 'CHANNEL_ERROR' || subStatus === 'TIMED_OUT') setStatus('error');

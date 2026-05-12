@@ -1,8 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
-import type { AIExport, AISuggestion } from '@/lib/ai-format';
+import type { AIExport, AISuggestion, SuggestionImportance } from '@/lib/ai-format';
+import { buildExportPrompt } from '@/lib/ai-format';
+
+const IMP_DOT: Record<SuggestionImportance, string> = {
+  critical: 'bg-destructive',
+  recommended: 'bg-primary',
+  optional: 'bg-muted-foreground/40',
+};
+
+const IMP_LABEL: Record<SuggestionImportance, string> = {
+  critical: 'критично',
+  recommended: 'рекомендую',
+  optional: 'по желанию',
+};
 
 export function AIBlock({
   exportData,
@@ -13,48 +25,67 @@ export function AIBlock({
 }) {
   const [importText, setImportText] = useState('');
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [done, setDone] = useState<number | null>(null);
+  const [copiedState, setCopiedState] = useState<'json' | 'prompt' | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const copyExport = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const copy = async (kind: 'json' | 'prompt') => {
+    const text =
+      kind === 'prompt' ? buildExportPrompt(exportData) : JSON.stringify(exportData, null, 2);
+    await navigator.clipboard.writeText(text);
+    setCopiedState(kind);
+    setTimeout(() => setCopiedState(null), 1500);
   };
 
   const parseInput = () => {
     setError(null);
-    setDone(false);
+    setDone(null);
     try {
       const parsed = JSON.parse(importText);
-      const list: AISuggestion[] = Array.isArray(parsed?.suggestions)
+      const raw: unknown[] = Array.isArray(parsed?.suggestions)
         ? parsed.suggestions
         : Array.isArray(parsed)
-        ? parsed
-        : [];
-      if (list.length === 0) throw new Error('Не нашёл suggestions');
+          ? parsed
+          : [];
+      if (raw.length === 0) throw new Error('Не нашёл suggestions');
+
+      const list: AISuggestion[] = raw.map(item => {
+        const r = item as Partial<AISuggestion>;
+        const importance: SuggestionImportance =
+          r.importance === 'critical' || r.importance === 'optional'
+            ? r.importance
+            : 'recommended';
+        return {
+          list: r.list ?? 'common',
+          title: r.title ?? '',
+          qty: r.qty,
+          category: r.category,
+          importance,
+          reason: r.reason,
+        };
+      }).filter(s => s.title.trim().length > 0);
+
+      if (list.length === 0) throw new Error('Все suggestions без title');
       setSuggestions(list);
-      setSelected(new Set(list.map((_, i) => i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось распарсить JSON');
     }
   };
 
   const apply = async () => {
-    const chosen = suggestions.filter((_, i) => selected.has(i));
-    await onImport(chosen);
-    setDone(true);
-    setSuggestions([]);
-    setImportText('');
-  };
-
-  const toggle = (i: number) => {
-    const next = new Set(selected);
-    if (next.has(i)) next.delete(i);
-    else next.add(i);
-    setSelected(next);
+    if (suggestions.length === 0) return;
+    setBusy(true);
+    try {
+      await onImport(suggestions);
+      setDone(suggestions.length);
+      setSuggestions([]);
+      setImportText('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка записи');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -66,11 +97,11 @@ export function AIBlock({
           <span className="mono-tag text-muted-foreground">AI-помощник</span>
         </div>
         <h2 className="display ink text-3xl lg:text-4xl leading-[0.95] tracking-tight">
-          Экспорт <span className="display-italic text-primary">и&nbsp;предложения</span>
+          Промпт <span className="display-italic text-primary">и&nbsp;импорт</span>
         </h2>
         <p className="text-base text-muted-foreground mt-3 max-w-md leading-relaxed">
-          Скопируй состояние, отдай ассистенту, вставь его предложения обратно —
-          и&nbsp;выбери, что добавить в&nbsp;списки.
+          Скопируй промпт (или только JSON), отдай ассистенту, вставь его ответ обратно —
+          подсказки попадут в&nbsp;таб <b className="ink">«ИИ»</b>.
         </p>
       </div>
 
@@ -78,27 +109,46 @@ export function AIBlock({
       <div className="hairline-t pt-6">
         <div className="flex items-baseline justify-between mb-3">
           <span className="mono-tag text-muted-foreground">шаг 01 · экспорт</span>
-          {copied && <span className="mono-tag text-primary">скопировано</span>}
+          {copiedState && (
+            <span className="mono-tag text-primary">
+              скопировано · {copiedState === 'prompt' ? 'промпт' : 'JSON'}
+            </span>
+          )}
         </div>
-        <button
-          onClick={copyExport}
-          className="h-12 px-6 rounded-full border border-foreground text-foreground text-sm tracking-tight hover:bg-foreground/[0.04] transition-colors"
-        >
-          {copied ? '✓ в буфере' : 'Скопировать состояние'}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => copy('prompt')}
+            className="h-12 px-6 rounded-full bg-foreground text-background text-sm tracking-tight hover:bg-foreground/90 transition-colors"
+          >
+            {copiedState === 'prompt' ? '✓ в буфере' : 'Копировать промпт + состояние'}
+          </button>
+          <button
+            onClick={() => copy('json')}
+            className="h-12 px-6 rounded-full border border-foreground text-foreground text-sm tracking-tight hover:bg-foreground/[0.04] transition-colors"
+          >
+            {copiedState === 'json' ? '✓ в буфере' : 'Только JSON'}
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mt-3 max-w-md leading-relaxed">
+          Промпт уже содержит инструкцию для Claude и текущий стейт — копипасть всё одним сообщением.
+        </p>
       </div>
 
       {/* Import */}
       <div className="hairline-t pt-6">
         <div className="flex items-baseline justify-between mb-3">
           <span className="mono-tag text-muted-foreground">шаг 02 · импорт</span>
-          {done && <span className="mono-tag text-primary">добавлено</span>}
+          {done !== null && (
+            <span className="mono-tag text-primary">
+              {done} {pluralItems(done)} в табе «ИИ»
+            </span>
+          )}
         </div>
         <textarea
           className="w-full border border-[var(--rule)] bg-card rounded-md p-3 text-xs font-mono h-32 leading-relaxed text-foreground focus:outline-none focus:border-foreground transition-colors"
           value={importText}
           onChange={e => setImportText(e.target.value)}
-          placeholder='{"suggestions": [{"list": "common", "title": "Тент"}]}'
+          placeholder='{"suggestions": [{"list": "common", "title": "Аптечка", "importance": "critical", "reason": "must"}]}'
         />
         <div className="mt-3 flex items-center gap-3">
           <button
@@ -108,62 +158,58 @@ export function AIBlock({
           >
             Распарсить JSON
           </button>
-          {error && (
-            <span className="mono-tag text-destructive">{error}</span>
-          )}
+          {error && <span className="mono-tag text-destructive">{error}</span>}
         </div>
       </div>
 
-      {/* Suggestions */}
+      {/* Preview */}
       {suggestions.length > 0 && (
         <div className="hairline-t pt-6 rise">
           <div className="flex items-baseline justify-between mb-4">
             <span className="mono-tag text-muted-foreground">
-              предложения · {suggestions.length}
+              предпросмотр · {suggestions.length}
             </span>
             <span className="mono-tag text-muted-foreground">
-              выбрано {selected.size}
+              отсортируешь и&nbsp;промоутишь в&nbsp;табе «ИИ»
             </span>
           </div>
 
-          <ul>
+          <ul className="mb-6">
             {suggestions.map((s, i) => (
               <li
                 key={i}
                 className={`hairline-b ${i === 0 ? 'hairline-t' : ''} py-3 flex items-start gap-3`}
               >
-                <Checkbox
-                  checked={selected.has(i)}
-                  onCheckedChange={() => toggle(i)}
-                  className="mt-1 shrink-0 rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 mt-2 ${IMP_DOT[s.importance]}`}
+                  aria-label={IMP_LABEL[s.importance]}
                 />
-                <label className="flex-1 cursor-pointer" onClick={() => toggle(i)}>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="mono-tag text-primary">[{s.list}]</span>
                     <span className="text-base ink leading-tight">{s.title}</span>
                     {s.qty && (
                       <span className="mono-tag text-muted-foreground">· {s.qty}</span>
                     )}
-                    {s.category && (
-                      <span className="mono-tag text-muted-foreground">· {s.category}</span>
-                    )}
+                    <span className="mono-tag text-primary ml-auto">[{s.list}]</span>
                   </div>
                   {s.reason && (
-                    <p className="text-sm text-muted-foreground mt-1 leading-snug">
+                    <p className="text-sm text-muted-foreground italic mt-1 leading-snug">
                       {s.reason}
                     </p>
                   )}
-                </label>
+                </div>
               </li>
             ))}
           </ul>
 
           <button
             onClick={apply}
-            disabled={selected.size === 0}
-            className="mt-6 w-full sm:w-auto h-12 px-8 rounded-full bg-foreground text-background text-sm tracking-tight hover:bg-foreground/90 transition-colors disabled:opacity-40"
+            disabled={busy}
+            className="w-full sm:w-auto h-12 px-8 rounded-full bg-foreground text-background text-sm tracking-tight hover:bg-foreground/90 transition-colors disabled:opacity-40"
           >
-            Добавить {selected.size} {pluralItems(selected.size)} →
+            {busy
+              ? 'Сохраняю…'
+              : `Добавить ${suggestions.length} ${pluralItems(suggestions.length)} в таб «ИИ» →`}
           </button>
         </div>
       )}
@@ -174,7 +220,7 @@ export function AIBlock({
 function pluralItems(n: number): string {
   const mod10 = n % 10;
   const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'пункт';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'пункта';
-  return 'пунктов';
+  if (mod10 === 1 && mod100 !== 11) return 'подсказка';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'подсказки';
+  return 'подсказок';
 }

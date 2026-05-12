@@ -1,10 +1,13 @@
 import type { Trip, Family, Item, ItemClaim, Category, ListType } from '@/lib/db/types';
 
+export type SuggestionImportance = 'critical' | 'recommended' | 'optional';
+
 export type AISuggestion = {
   list: ListType;
   title: string;
   qty?: string;
   category?: Category;
+  importance: SuggestionImportance;
   reason?: string;
 };
 
@@ -53,4 +56,31 @@ export function buildExport(
     personal,
     food,
   };
+}
+
+export function buildExportPrompt(exportData: AIExport): string {
+  const dates = exportData.trip.starts_on && exportData.trip.ends_on
+    ? `${exportData.trip.starts_on} → ${exportData.trip.ends_on}`
+    : 'без дат';
+  const nFamilies = exportData.families.length;
+
+  return `Помоги собрать в поход. ${nFamilies} семьи (${exportData.families.join(', ')}), даты ${dates}.
+
+Ниже текущее состояние списков — предложи что мы могли забыть. Для каждого предложения укажи:
+- list: "common" | "personal" | "food"
+- title: название
+- qty (только для food): "2 кг", "1 шт" и т.д.
+- category (только для food): "meat" | "veg" | "drinks" | "snacks" | "other"
+- importance: "critical" (must, без этого никак) | "recommended" (сильно желательно) | "optional" (по желанию)
+- reason: короткое объяснение почему
+
+Верни JSON в формате:
+{
+  "suggestions": [
+    { "list": "...", "title": "...", "importance": "...", "reason": "..." }
+  ]
+}
+
+Текущее состояние:
+${JSON.stringify(exportData, null, 2)}`;
 }

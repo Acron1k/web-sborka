@@ -1,5 +1,6 @@
 export type ListType = 'common' | 'personal' | 'food';
 export type Category = 'meat' | 'veg' | 'drinks' | 'snacks' | 'other';
+export type Importance = 'critical' | 'recommended' | 'optional';
 
 export type Trip = {
   id: string;
@@ -40,6 +41,20 @@ export type ItemClaim = {
   is_packed: boolean;
 };
 
+export type AISuggestion = {
+  id: string;
+  trip_id: string;
+  list_type: ListType;
+  title: string;
+  qty: string | null;
+  category: Category | null;
+  importance: Importance;
+  reason: string | null;
+  added_to_list_at: string | null;
+  added_by_family_id: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -69,6 +84,17 @@ export type Database = {
           is_packed?: boolean;
         };
         Update: Partial<ItemClaim>;
+        Relationships: [];
+      };
+      ai_suggestions: {
+        Row: AISuggestion;
+        Insert: Omit<AISuggestion, 'id' | 'created_at' | 'added_to_list_at' | 'added_by_family_id'> & {
+          id?: string;
+          created_at?: string;
+          added_to_list_at?: string | null;
+          added_by_family_id?: string | null;
+        };
+        Update: Partial<AISuggestion>;
         Relationships: [];
       };
     };
