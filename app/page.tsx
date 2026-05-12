@@ -73,10 +73,16 @@ export default function HomePage() {
 
           {/* Headline */}
           <div>
-            <h1 className="display ink leading-[0.92] tracking-[-0.04em] text-[96px] xl:text-[124px]">
+            <h1
+              className="display ink leading-[0.92] tracking-[-0.04em]"
+              style={{ fontSize: 'clamp(48px, 4.5vw, 96px)' }}
+            >
               Соберись
             </h1>
-            <h1 className="display-italic text-primary leading-[0.92] tracking-[-0.035em] text-[96px] xl:text-[124px] -mt-1">
+            <h1
+              className="display-italic text-primary leading-[0.92] tracking-[-0.035em] -mt-1"
+              style={{ fontSize: 'clamp(48px, 4.5vw, 96px)' }}
+            >
               обстоятельно
             </h1>
             <p className="mt-10 max-w-md text-lg leading-relaxed text-muted-foreground">
