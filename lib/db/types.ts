@@ -46,22 +46,30 @@ export type Database = {
         Row: Trip;
         Insert: Omit<Trip, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Trip>;
+        Relationships: [];
       };
       families: {
         Row: Family;
         Insert: Omit<Family, 'id'> & { id?: string };
         Update: Partial<Family>;
+        Relationships: [];
       };
       items: {
         Row: Item;
         Insert: Omit<Item, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Item>;
+        Relationships: [];
       };
       item_claims: {
         Row: ItemClaim;
         Insert: Omit<ItemClaim, 'id' | 'claimed_at'> & { id?: string; claimed_at?: string };
         Update: Partial<ItemClaim>;
+        Relationships: [];
       };
     };
+    Views: Record<never, never>;
+    Functions: Record<never, never>;
+    Enums: Record<never, never>;
+    CompositeTypes: Record<never, never>;
   };
 };
