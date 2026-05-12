@@ -69,25 +69,16 @@ export default function HomePage() {
           {/* top mono row */}
           <div className="flex items-baseline justify-between">
             <span className="mono-tag text-muted-foreground">№ 01 · Планировщик</span>
-            <span className="mono-tag text-muted-foreground">издание весна</span>
           </div>
 
-          {/* Headline + decorative numeral */}
-          <div className="relative">
-            <div
-              className="numeral-mark absolute -top-4 -left-2 text-[260px] xl:text-[320px] pointer-events-none select-none"
-              aria-hidden="true"
-            >
-              01
-            </div>
-            <div className="relative">
-              <h1 className="display ink leading-[0.88] tracking-[-0.045em] text-[112px] xl:text-[148px]">
-                Соберись
-              </h1>
-              <h1 className="display-italic text-primary leading-[0.88] tracking-[-0.04em] text-[112px] xl:text-[148px] -mt-2">
-                обстоятельно
-              </h1>
-            </div>
+          {/* Headline */}
+          <div>
+            <h1 className="display ink leading-[0.92] tracking-[-0.04em] text-[96px] xl:text-[124px]">
+              Соберись
+            </h1>
+            <h1 className="display-italic text-primary leading-[0.92] tracking-[-0.035em] text-[96px] xl:text-[124px] -mt-1">
+              обстоятельно
+            </h1>
             <p className="mt-10 max-w-md text-lg leading-relaxed text-muted-foreground">
               Список вещей, продуктов и&nbsp;дел на&nbsp;общую вылазку.
               Друзья присоединяются по&nbsp;ссылке —{' '}
@@ -96,8 +87,7 @@ export default function HomePage() {
           </div>
 
           {/* Footer slug */}
-          <div className="flex items-baseline justify-between hairline-t pt-6">
-            <span className="mono-tag text-muted-foreground">v0.1 · сделано вручную</span>
+          <div className="flex items-baseline justify-end hairline-t pt-6">
             <span className="mono-tag text-muted-foreground">↓ заполни справа</span>
           </div>
         </section>

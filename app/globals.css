@@ -92,9 +92,8 @@
   }
 
   /* Headlines + display utility */
-  h1, h2, h3, .display {
+  h1, h2, h3 {
     font-family: var(--font-display), Georgia, serif;
-    font-feature-settings: "ss01";
     letter-spacing: -0.02em;
   }
 }
@@ -102,13 +101,13 @@
 @layer utilities {
   .display {
     font-family: var(--font-display), Georgia, serif;
-    font-variation-settings: "opsz" 144, "SOFT" 50;
-    letter-spacing: -0.025em;
+    font-weight: 500;
+    letter-spacing: -0.02em;
   }
   .display-italic {
     font-family: var(--font-display), Georgia, serif;
-    font-variation-settings: "opsz" 144, "SOFT" 100;
     font-style: italic;
+    font-weight: 500;
   }
   .mono-tag {
     font-family: var(--font-mono), monospace;
@@ -182,8 +181,8 @@
   /* Decorative giant numeral */
   .numeral-mark {
     font-family: var(--font-display), Georgia, serif;
-    font-variation-settings: "opsz" 144, "SOFT" 50;
     font-style: italic;
+    font-weight: 500;
     line-height: 0.8;
     letter-spacing: -0.04em;
     color: var(--rule);
