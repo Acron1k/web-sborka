@@ -10,6 +10,7 @@ import { ItemsList } from '@/components/items/items-list';
 import { PersonalList } from '@/components/items/personal-list';
 import { FoodList } from '@/components/items/food-list';
 import { useTripRealtime } from '@/lib/realtime';
+import { LiveDot } from '@/components/live-dot';
 import Link from 'next/link';
 
 type Tab = 'common' | 'personal' | 'food';
@@ -32,7 +33,7 @@ export default function TripPage() {
     enabled: familyId !== 'loading',
   });
 
-  useTripRealtime(data?.trip.id ?? '');
+  const rtStatus = useTripRealtime(data?.trip.id ?? '');
 
   if (familyId === 'loading' || !data) {
     return (
@@ -101,12 +102,15 @@ export default function TripPage() {
                 </div>
               )}
             </div>
-            <Link
-              href={`/t/${slug}/settings`}
-              className="mono-tag text-muted-foreground hover:text-foreground transition-colors shrink-0 underline underline-offset-4 decoration-[var(--rule)] hover:decoration-foreground"
-            >
-              опции
-            </Link>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Link
+                href={`/t/${slug}/settings`}
+                className="mono-tag text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 decoration-[var(--rule)] hover:decoration-foreground"
+              >
+                опции
+              </Link>
+              <LiveDot status={rtStatus} />
+            </div>
           </div>
 
           <nav className="flex hairline-t">
@@ -189,14 +193,19 @@ export default function TripPage() {
             })}
           </nav>
 
-          <div className="mt-auto pt-8 hairline-t flex items-baseline justify-between">
-            <Link
-              href={`/t/${slug}/settings`}
-              className="mono-tag text-muted-foreground hover:text-foreground transition-colors mt-6"
-            >
-              → настройки
-            </Link>
-            <span className="mono-tag text-muted-foreground mt-6">v0.1</span>
+          <div className="mt-auto pt-8 hairline-t">
+            <div className="flex items-baseline justify-between mt-6">
+              <Link
+                href={`/t/${slug}/settings`}
+                className="mono-tag text-muted-foreground hover:text-foreground transition-colors"
+              >
+                → настройки
+              </Link>
+              <span className="mono-tag text-muted-foreground">v0.1</span>
+            </div>
+            <div className="mt-3">
+              <LiveDot status={rtStatus} />
+            </div>
           </div>
         </aside>
 

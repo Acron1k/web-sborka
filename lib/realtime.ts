@@ -1,14 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 
-export function useTripRealtime(tripId: string) {
+export type RealtimeStatus = 'idle' | 'connecting' | 'live' | 'error';
+
+export function useTripRealtime(tripId: string): RealtimeStatus {
   const qc = useQueryClient();
+  const [status, setStatus] = useState<RealtimeStatus>('idle');
 
   useEffect(() => {
     if (!tripId) return;
+    setStatus('connecting');
+
     const channel = supabase
       .channel(`trip-${tripId}`)
       .on(
@@ -32,10 +37,17 @@ export function useTripRealtime(tripId: string) {
           qc.invalidateQueries({ queryKey: ['trip'] });
         }
       )
-      .subscribe();
+      .subscribe((subStatus) => {
+        if (subStatus === 'SUBSCRIBED') setStatus('live');
+        else if (subStatus === 'CHANNEL_ERROR' || subStatus === 'TIMED_OUT') setStatus('error');
+        else if (subStatus === 'CLOSED') setStatus('idle');
+      });
 
     return () => {
       supabase.removeChannel(channel);
+      setStatus('idle');
     };
   }, [tripId, qc]);
+
+  return status;
 }
