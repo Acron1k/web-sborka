@@ -1,14 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { AddItemForm } from './add-item-form';
 import {
   fetchPersonalItems,
   insertItem,
   deleteItem,
   togglePersonalDone,
+  updateItem,
 } from '@/lib/queries/items';
+import type { Item } from '@/lib/db/types';
 
 export function PersonalList({
   tripId,
@@ -46,6 +50,24 @@ export function PersonalList({
     mutationFn: ({ id, done }: { id: string; done: boolean }) => togglePersonalDone(id, done),
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
   });
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...patch }: { id: string } & Partial<Pick<Item, 'title' | 'qty' | 'category'>>) =>
+      updateItem(id, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+  });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  const startEdit = (item: Item) => {
+    setEditingId(item.id);
+    setEditValue(item.title);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue('');
+  };
 
   const done = items.filter(i => i.is_done).length;
   const total = items.length;
@@ -88,34 +110,84 @@ export function PersonalList({
       )}
 
       <ul className="md:grid md:grid-cols-2 md:gap-x-10">
-        {items.map((item, idx) => (
-          <li
-            key={item.id}
-            className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
-          >
-            <Checkbox
-              checked={item.is_done}
-              onCheckedChange={(v) => doneMut.mutate({ id: item.id, done: !!v })}
-              className="shrink-0 rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
-            />
-            <p
-              className={`flex-1 text-base leading-tight transition-colors ${
-                item.is_done
-                  ? 'line-through text-muted-foreground'
-                  : 'ink'
-              }`}
+        {items.map((item, idx) => {
+          const isEditing = editingId === item.id;
+          return (
+            <li
+              key={item.id}
+              className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
             >
-              {item.title}
-            </p>
-            <button
-              onClick={() => delMut.mutate(item.id)}
-              aria-label="Удалить пункт"
-              className="mono-tag text-muted-foreground hover:text-destructive transition-colors opacity-60 group-hover:opacity-100 px-2 py-2"
-            >
-              ×
-            </button>
-          </li>
-        ))}
+              <Checkbox
+                checked={item.is_done}
+                onCheckedChange={(v) => doneMut.mutate({ id: item.id, done: !!v })}
+                className="shrink-0 rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
+              />
+              {isEditing ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const v = editValue.trim();
+                    if (!v) return;
+                    updateMut.mutate({ id: item.id, title: v });
+                    cancelEdit();
+                  }}
+                  className="flex-1 flex items-center gap-2"
+                >
+                  <Input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') cancelEdit();
+                    }}
+                    className="editorial-input h-9 text-base flex-1"
+                  />
+                  <button
+                    type="submit"
+                    className="mono-tag text-primary hover:text-foreground px-2 py-2"
+                  >
+                    сохр.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="mono-tag text-muted-foreground hover:text-foreground px-2 py-2"
+                  >
+                    отмена
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <p
+                    className={`flex-1 text-base leading-tight transition-colors ${
+                      item.is_done
+                        ? 'line-through text-muted-foreground'
+                        : 'ink'
+                    }`}
+                  >
+                    {item.title}
+                  </p>
+                  <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => startEdit(item)}
+                      aria-label="Редактировать пункт"
+                      className="mono-tag text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
+                    >
+                      ред.
+                    </button>
+                    <button
+                      onClick={() => delMut.mutate(item.id)}
+                      aria-label="Удалить пункт"
+                      className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

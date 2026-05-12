@@ -54,6 +54,28 @@ export async function deleteItem(itemId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function updateItem(
+  itemId: string,
+  patch: Partial<Pick<Item, 'title' | 'qty' | 'category'>>
+): Promise<void> {
+  const { error } = await supabase.from('items').update(patch).eq('id', itemId);
+  if (error) throw error;
+}
+
+export async function insertItemWithClaims(
+  payload: Parameters<typeof insertItem>[0],
+  familyIds: string[]
+): Promise<Item> {
+  const item = await insertItem(payload);
+  if (familyIds.length > 0) {
+    const claims = familyIds.map(family_id => ({ item_id: item.id, family_id }));
+    const { error } = await supabase.from('item_claims').insert(claims);
+    // 23505 = unique violation — игнорим
+    if (error && error.code !== '23505') throw error;
+  }
+  return item;
+}
+
 export async function toggleClaim(itemId: string, familyId: string, claimed: boolean): Promise<void> {
   if (claimed) {
     const { error } = await supabase.from('item_claims').insert({ item_id: itemId, family_id: familyId });
