@@ -1,10 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { AddItemForm } from './add-item-form';
 import {
   fetchPersonalItems,
@@ -56,37 +53,70 @@ export function PersonalList({
 
   return (
     <div>
-      <p className="text-sm text-slate-600 mb-1">Список семьи {familyName}</p>
-      {total > 0 && (
-        <div className="mb-3">
-          <Progress value={pct} className="h-2" />
-          <p className="text-xs text-slate-500 mt-1">{done} из {total} упаковано</p>
+      {/* Heading + progress: full width even inside grid */}
+      <div className="mb-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="mono-tag text-muted-foreground">
+            личное · {familyName}
+          </span>
+          {total > 0 && (
+            <span className="mono-tag text-muted-foreground">
+              {done} / {total} упаковано
+            </span>
+          )}
         </div>
-      )}
+
+        {total > 0 && (
+          <div className="relative h-px bg-[var(--rule)]" aria-hidden="true">
+            <div
+              className="absolute inset-y-0 left-0 bg-primary transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
+      </div>
 
       <AddItemForm
         onAdd={async t => { await addMut.mutateAsync(t); }}
         placeholder="Например: Тёплые носки"
       />
 
-      {items.length === 0 && <p className="text-slate-500 text-sm">Пока пусто.</p>}
+      {items.length === 0 && (
+        <p className="mono-tag text-muted-foreground py-8">
+          пусто · добавь личную вещь
+        </p>
+      )}
 
-      <div className="space-y-2">
-        {items.map(item => (
-          <Card key={item.id} className="p-3">
-            <div className="flex items-center gap-3">
-              <Checkbox
-                checked={item.is_done}
-                onCheckedChange={(v) => doneMut.mutate({ id: item.id, done: v })}
-              />
-              <p className={`flex-1 ${item.is_done ? 'line-through text-slate-400' : ''}`}>
-                {item.title}
-              </p>
-              <Button size="sm" variant="ghost" onClick={() => delMut.mutate(item.id)}>🗑</Button>
-            </div>
-          </Card>
+      <ul className="md:grid md:grid-cols-2 md:gap-x-10">
+        {items.map((item, idx) => (
+          <li
+            key={item.id}
+            className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
+          >
+            <Checkbox
+              checked={item.is_done}
+              onCheckedChange={(v) => doneMut.mutate({ id: item.id, done: !!v })}
+              className="shrink-0 rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
+            />
+            <p
+              className={`flex-1 text-base leading-tight transition-colors ${
+                item.is_done
+                  ? 'line-through text-muted-foreground'
+                  : 'ink'
+              }`}
+            >
+              {item.title}
+            </p>
+            <button
+              onClick={() => delMut.mutate(item.id)}
+              aria-label="Удалить пункт"
+              className="mono-tag text-muted-foreground hover:text-destructive transition-colors opacity-60 group-hover:opacity-100 px-2 py-2"
+            >
+              ×
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

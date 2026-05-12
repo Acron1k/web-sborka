@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { FamilyBadge } from '@/components/family-badge';
 import { fetchItems, fetchClaims, insertItem, deleteItem, toggleClaim } from '@/lib/queries/items';
 import type { Family, ItemClaim, ListType } from '@/lib/db/types';
@@ -94,47 +92,75 @@ export function ItemsList({
 
   return (
     <div>
+      <div className="mb-4 flex items-baseline justify-between">
+        <span className="mono-tag text-muted-foreground">
+          общий список · {items.length}
+        </span>
+        {items.length > 0 && (
+          <span className="mono-tag text-muted-foreground">
+            {items.filter(i => (claimsByItem.get(i.id) ?? []).length === 0).length} без хозяина
+          </span>
+        )}
+      </div>
+
       <AddItemForm onAdd={handleAdd} />
 
-      {items.length === 0 && <p className="text-slate-500 text-sm">Пока пусто. Добавь первый пункт.</p>}
+      {items.length === 0 && (
+        <p className="mono-tag text-muted-foreground py-8">
+          пусто · добавь первый пункт
+        </p>
+      )}
 
-      <div className="space-y-2">
-        {items.map(item => {
+      <ul className="md:grid md:grid-cols-2 md:gap-x-10">
+        {items.map((item, idx) => {
           const itemClaims = claimsByItem.get(item.id) ?? [];
           const iTake = itemClaims.some(c => c.family_id === currentFamilyId);
           const noOne = itemClaims.length === 0;
 
           return (
-            <Card key={item.id} className={`p-3 ${noOne ? 'border-red-300' : ''}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.title}</p>
+            <li
+              key={item.id}
+              className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-base ink leading-tight truncate">{item.title}</p>
+                <div className="mt-2 flex items-center gap-2 min-h-[20px]">
                   {noOne ? (
-                    <p className="text-xs text-red-600 mt-0.5">никто не берёт</p>
+                    <span className="mono-tag text-destructive">свободно</span>
                   ) : (
-                    <div className="flex gap-1 mt-1.5">
+                    <div className="flex -space-x-1.5">
                       {itemClaims.map(c => {
                         const f = famById.get(c.family_id);
-                        return f ? <FamilyBadge key={c.id} family={f} size={20} /> : null;
+                        return f ? <FamilyBadge key={c.id} family={f} size={18} /> : null;
                       })}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button
-                    size="sm"
-                    variant={iTake ? 'secondary' : 'default'}
-                    onClick={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
-                  >
-                    {iTake ? 'Я не беру' : 'Беру я'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => delMut.mutate(item.id)}>🗑</Button>
-                </div>
               </div>
-            </Card>
+
+              <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
+                  className={`mono-tag px-3 py-2 rounded-full transition-colors ${
+                    iTake
+                      ? 'border border-[var(--rule)] text-foreground hover:bg-foreground/[0.04]'
+                      : 'bg-foreground text-background hover:bg-foreground/90'
+                  }`}
+                >
+                  {iTake ? 'я не беру' : 'беру я'}
+                </button>
+                <button
+                  onClick={() => delMut.mutate(item.id)}
+                  aria-label="Удалить пункт"
+                  className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
+                >
+                  ×
+                </button>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {dupState && (
         <DuplicateDialog

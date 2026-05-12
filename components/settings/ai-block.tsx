@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { AIExport, AISuggestion } from '@/lib/ai-format';
 
@@ -60,48 +58,123 @@ export function AIBlock({
   };
 
   return (
-    <Card className="p-4 space-y-3">
+    <section className="space-y-8">
+      {/* Section header */}
       <div>
-        <h3 className="font-semibold mb-1">🤖 AI-помощник</h3>
-        <p className="text-sm text-slate-600">
-          Экспортни состояние, отдай Claude, вставь обратно его предложения.
+        <div className="flex items-baseline gap-3 mb-2">
+          <span className="mono-tag text-muted-foreground">04</span>
+          <span className="mono-tag text-muted-foreground">AI-помощник</span>
+        </div>
+        <h2 className="display ink text-3xl lg:text-4xl leading-[0.95] tracking-tight">
+          Экспорт <span className="display-italic text-primary">и&nbsp;предложения</span>
+        </h2>
+        <p className="text-base text-muted-foreground mt-3 max-w-md leading-relaxed">
+          Скопируй состояние, отдай ассистенту, вставь его предложения обратно —
+          и&nbsp;выбери, что добавить в&nbsp;списки.
         </p>
       </div>
 
-      <Button variant="secondary" onClick={copyExport}>
-        {copied ? '✓ Скопировано' : 'Экспорт состояния в буфер'}
-      </Button>
+      {/* Export */}
+      <div className="hairline-t pt-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="mono-tag text-muted-foreground">шаг 01 · экспорт</span>
+          {copied && <span className="mono-tag text-primary">скопировано</span>}
+        </div>
+        <button
+          onClick={copyExport}
+          className="h-12 px-6 rounded-full border border-foreground text-foreground text-sm tracking-tight hover:bg-foreground/[0.04] transition-colors"
+        >
+          {copied ? '✓ в буфере' : 'Скопировать состояние'}
+        </button>
+      </div>
 
-      <div>
-        <p className="text-sm font-medium mb-1">Импорт предложений:</p>
+      {/* Import */}
+      <div className="hairline-t pt-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="mono-tag text-muted-foreground">шаг 02 · импорт</span>
+          {done && <span className="mono-tag text-primary">добавлено</span>}
+        </div>
         <textarea
-          className="w-full border rounded-md p-2 text-xs font-mono h-32"
+          className="w-full border border-[var(--rule)] bg-card rounded-md p-3 text-xs font-mono h-32 leading-relaxed text-foreground focus:outline-none focus:border-foreground transition-colors"
           value={importText}
           onChange={e => setImportText(e.target.value)}
           placeholder='{"suggestions": [{"list": "common", "title": "Тент"}]}'
         />
-        <Button variant="secondary" className="mt-2" onClick={parseInput}>Распарсить</Button>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        {done && <p className="text-sm text-green-600 mt-2">Добавлено!</p>}
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            onClick={parseInput}
+            disabled={!importText.trim()}
+            className="h-11 px-5 rounded-full border border-foreground text-foreground text-sm tracking-tight hover:bg-foreground/[0.04] transition-colors disabled:opacity-40"
+          >
+            Распарсить JSON
+          </button>
+          {error && (
+            <span className="mono-tag text-destructive">{error}</span>
+          )}
+        </div>
       </div>
 
+      {/* Suggestions */}
       {suggestions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Выбери, что добавить:</p>
-          {suggestions.map((s, i) => (
-            <label key={i} className="flex items-start gap-2 text-sm">
-              <Checkbox checked={selected.has(i)} onCheckedChange={() => toggle(i)} />
-              <span>
-                <b>[{s.list}]</b> {s.title}
-                {s.qty && ` (${s.qty})`}
-                {s.category && ` · ${s.category}`}
-                {s.reason && <span className="text-slate-500"> — {s.reason}</span>}
-              </span>
-            </label>
-          ))}
-          <Button onClick={apply}>Добавить {selected.size} пунктов</Button>
+        <div className="hairline-t pt-6 rise">
+          <div className="flex items-baseline justify-between mb-4">
+            <span className="mono-tag text-muted-foreground">
+              предложения · {suggestions.length}
+            </span>
+            <span className="mono-tag text-muted-foreground">
+              выбрано {selected.size}
+            </span>
+          </div>
+
+          <ul>
+            {suggestions.map((s, i) => (
+              <li
+                key={i}
+                className={`hairline-b ${i === 0 ? 'hairline-t' : ''} py-3 flex items-start gap-3`}
+              >
+                <Checkbox
+                  checked={selected.has(i)}
+                  onCheckedChange={() => toggle(i)}
+                  className="mt-1 shrink-0 rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
+                />
+                <label className="flex-1 cursor-pointer" onClick={() => toggle(i)}>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="mono-tag text-primary">[{s.list}]</span>
+                    <span className="text-base ink leading-tight">{s.title}</span>
+                    {s.qty && (
+                      <span className="mono-tag text-muted-foreground">· {s.qty}</span>
+                    )}
+                    {s.category && (
+                      <span className="mono-tag text-muted-foreground">· {s.category}</span>
+                    )}
+                  </div>
+                  {s.reason && (
+                    <p className="text-sm text-muted-foreground mt-1 leading-snug">
+                      {s.reason}
+                    </p>
+                  )}
+                </label>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={apply}
+            disabled={selected.size === 0}
+            className="mt-6 w-full sm:w-auto h-12 px-8 rounded-full bg-foreground text-background text-sm tracking-tight hover:bg-foreground/90 transition-colors disabled:opacity-40"
+          >
+            Добавить {selected.size} {pluralItems(selected.size)} →
+          </button>
         </div>
       )}
-    </Card>
+    </section>
   );
+}
+
+function pluralItems(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'пункт';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'пункта';
+  return 'пунктов';
 }

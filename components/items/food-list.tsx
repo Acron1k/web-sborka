@@ -2,11 +2,8 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FamilyBadge } from '@/components/family-badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   fetchItems,
   fetchClaims,
@@ -19,12 +16,12 @@ import { DuplicateDialog } from './duplicate-dialog';
 import type { Family, Item, ItemClaim, Category } from '@/lib/db/types';
 
 const CATEGORIES: { value: Category | 'all'; label: string }[] = [
-  { value: 'all', label: 'Все' },
-  { value: 'meat', label: 'Мясо' },
-  { value: 'veg', label: 'Овощи' },
-  { value: 'drinks', label: 'Напитки' },
-  { value: 'snacks', label: 'Перекус' },
-  { value: 'other', label: 'Прочее' },
+  { value: 'all', label: 'все' },
+  { value: 'meat', label: 'мясо' },
+  { value: 'veg', label: 'овощи' },
+  { value: 'drinks', label: 'напитки' },
+  { value: 'snacks', label: 'перекус' },
+  { value: 'other', label: 'прочее' },
 ];
 
 export function FoodList({
@@ -113,102 +110,155 @@ export function FoodList({
 
   return (
     <div>
-      <Tabs
-        value={filter}
-        onValueChange={v => setFilter(v as Category | 'all')}
-        className="mb-3"
-      >
-        <TabsList className="flex w-full overflow-x-auto">
-          {CATEGORIES.map(c => (
-            <TabsTrigger key={c.value} value={c.value} className="text-xs">
-              {c.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <Card className="p-3 mb-3 space-y-2">
-        <Input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Например: Мясо"
-        />
-        <div className="flex gap-2">
-          <Input
-            value={qty}
-            onChange={e => setQty(e.target.value)}
-            placeholder="5 кг"
-            className="flex-1"
-          />
-          <select
-            className="border rounded-md px-2 text-sm bg-white"
-            value={category}
-            onChange={e => setCategory(e.target.value as Category)}
-          >
-            {CATEGORIES.filter(c => c.value !== 'all').map(c => (
-              <option key={c.value} value={c.value}>
+      {/* Category strip — editorial scrollable nav */}
+      <nav className="hairline-b mb-6 -mx-1">
+        <div className="flex gap-1 overflow-x-auto px-1 pb-2 scrollbar-none">
+          {CATEGORIES.map(c => {
+            const active = filter === c.value;
+            return (
+              <button
+                key={c.value}
+                onClick={() => setFilter(c.value)}
+                className={`mono-tag whitespace-nowrap px-3 py-2 transition-colors ${
+                  active
+                    ? 'text-foreground border-b-2 border-foreground -mb-[2px]'
+                    : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent -mb-[2px]'
+                }`}
+              >
                 {c.label}
-              </option>
-            ))}
-          </select>
-          <Button onClick={handleAdd}>+</Button>
+              </button>
+            );
+          })}
         </div>
-      </Card>
+      </nav>
 
+      {/* Editorial add form */}
+      <div className="mb-6 space-y-4 sm:space-y-0 sm:flex sm:items-end sm:gap-4">
+        <div className="flex-1 min-w-0">
+          <span className="mono-tag text-muted-foreground block mb-1">название</span>
+          <Input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Например: Мясо"
+            className="editorial-input h-11 text-base placeholder:text-muted-foreground/60"
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
+        </div>
+        <div className="flex items-end gap-3 sm:gap-4 shrink-0">
+          <div className="w-24">
+            <span className="mono-tag text-muted-foreground block mb-1">кол-во</span>
+            <Input
+              value={qty}
+              onChange={e => setQty(e.target.value)}
+              placeholder="5 кг"
+              className="editorial-input h-11 text-base placeholder:text-muted-foreground/60"
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+          </div>
+          <div className="flex-1 sm:w-32 min-w-0">
+            <span className="mono-tag text-muted-foreground block mb-1">кат.</span>
+            <select
+              className="editorial-input h-11 text-base bg-transparent w-full text-foreground"
+              value={category}
+              onChange={e => setCategory(e.target.value as Category)}
+            >
+              {CATEGORIES.filter(c => c.value !== 'all').map(c => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={!title.trim()}
+            aria-label="Добавить продукт"
+            className="shrink-0 h-11 w-11 rounded-full bg-foreground text-background flex items-center justify-center text-xl leading-none transition-all hover:scale-[0.97] disabled:opacity-30 disabled:hover:scale-100"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      {/* Summary as mono row */}
       {items.length > 0 && (
-        <div className="mb-3 p-3 bg-slate-100 rounded-md text-sm">
-          Всего пунктов: <b>{items.length}</b>, без хозяина:{' '}
-          <b className={unclaimedCount > 0 ? 'text-red-600' : ''}>{unclaimedCount}</b>
+        <div className="mb-4 flex items-baseline gap-4">
+          <span className="mono-tag text-muted-foreground">
+            всего {items.length}
+          </span>
+          <span
+            className={`mono-tag ${unclaimedCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+          >
+            свободно {unclaimedCount}
+          </span>
+          {filter !== 'all' && (
+            <span className="mono-tag text-muted-foreground ml-auto">
+              в категории: {filtered.length}
+            </span>
+          )}
         </div>
       )}
 
       {filtered.length === 0 && (
-        <p className="text-slate-500 text-sm">Пока пусто в этой категории.</p>
+        <p className="mono-tag text-muted-foreground py-8">
+          {items.length === 0 ? 'пусто · добавь первый продукт' : 'пусто в этой категории'}
+        </p>
       )}
 
-      <div className="space-y-2">
-        {filtered.map(item => {
+      <ul className="md:grid md:grid-cols-2 md:gap-x-10">
+        {filtered.map((item, idx) => {
           const itemClaims = claimsByItem.get(item.id) ?? [];
           const iTake = itemClaims.some(c => c.family_id === currentFamilyId);
           const noOne = itemClaims.length === 0;
           return (
-            <Card key={item.id} className={`p-3 ${noOne ? 'border-red-300' : ''}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">
-                    {item.title}
-                    {item.qty && (
-                      <span className="text-slate-500 font-normal"> · {item.qty}</span>
-                    )}
-                  </p>
+            <li
+              key={item.id}
+              className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-base ink leading-tight truncate">
+                  {item.title}
+                  {item.qty && (
+                    <span className="text-muted-foreground font-normal"> · {item.qty}</span>
+                  )}
+                </p>
+                <div className="mt-2 flex items-center gap-2 min-h-[20px]">
                   {noOne ? (
-                    <p className="text-xs text-red-600 mt-0.5">никто не берёт</p>
+                    <span className="mono-tag text-destructive">свободно</span>
                   ) : (
-                    <div className="flex gap-1 mt-1.5">
+                    <div className="flex -space-x-1.5">
                       {itemClaims.map(c => {
                         const f = famById.get(c.family_id);
-                        return f ? <FamilyBadge key={c.id} family={f} size={20} /> : null;
+                        return f ? <FamilyBadge key={c.id} family={f} size={18} /> : null;
                       })}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button
-                    size="sm"
-                    variant={iTake ? 'secondary' : 'default'}
-                    onClick={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
-                  >
-                    {iTake ? 'Я не беру' : 'Беру я'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => delMut.mutate(item.id)}>
-                    🗑
-                  </Button>
-                </div>
               </div>
-            </Card>
+
+              <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
+                  className={`mono-tag px-3 py-2 rounded-full transition-colors ${
+                    iTake
+                      ? 'border border-[var(--rule)] text-foreground hover:bg-foreground/[0.04]'
+                      : 'bg-foreground text-background hover:bg-foreground/90'
+                  }`}
+                >
+                  {iTake ? 'я не беру' : 'беру я'}
+                </button>
+                <button
+                  onClick={() => delMut.mutate(item.id)}
+                  aria-label="Удалить продукт"
+                  className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
+                >
+                  ×
+                </button>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {dupState && (
         <DuplicateDialog

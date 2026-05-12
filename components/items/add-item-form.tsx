@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function AddItemForm({ onAdd, placeholder = 'Например: Мангал' }: {
@@ -21,10 +20,27 @@ export function AddItemForm({ onAdd, placeholder = 'Например: Манга
     setBusy(false);
   };
 
+  const disabled = busy || !value.trim();
+
   return (
-    <form onSubmit={submit} className="flex gap-2 mb-3">
-      <Input value={value} onChange={e => setValue(e.target.value)} placeholder={placeholder} disabled={busy} />
-      <Button type="submit" disabled={busy || !value.trim()}>+</Button>
+    <form onSubmit={submit} className="flex items-end gap-3 mb-6">
+      <div className="flex-1 min-w-0">
+        <Input
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder={placeholder}
+          disabled={busy}
+          className="editorial-input h-11 text-base placeholder:text-muted-foreground/60"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={disabled}
+        aria-label="Добавить пункт"
+        className="shrink-0 h-11 w-11 rounded-full bg-foreground text-background flex items-center justify-center text-xl leading-none transition-all hover:scale-[0.97] disabled:opacity-30 disabled:hover:scale-100"
+      >
+        +
+      </button>
     </form>
   );
 }
