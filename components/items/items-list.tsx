@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,8 @@ import { FamilyBadge } from '@/components/family-badge';
 import { fetchItems, fetchClaims, insertItem, deleteItem, toggleClaim } from '@/lib/queries/items';
 import type { Family, ItemClaim, ListType } from '@/lib/db/types';
 import { AddItemForm } from './add-item-form';
+import { findDuplicate } from '@/lib/duplicate';
+import { DuplicateDialog } from './duplicate-dialog';
 
 export function ItemsList({
   tripId,
@@ -57,6 +60,30 @@ export function ItemsList({
     onSuccess: () => qc.invalidateQueries({ queryKey: claimsKey }),
   });
 
+  const [dupState, setDupState] = useState<{ existingId: string; existingTitle: string; newTitle: string } | null>(null);
+
+  const handleAdd = async (title: string) => {
+    const dup = findDuplicate(items.map(i => ({ id: i.id, title: i.title })), title);
+    if (dup) {
+      setDupState({ existingId: dup.id, existingTitle: dup.title, newTitle: title });
+      return;
+    }
+    await addMut.mutateAsync(title);
+  };
+
+  const handleMerge = async () => {
+    if (!dupState) return;
+    await toggleClaim(dupState.existingId, currentFamilyId, true);
+    qc.invalidateQueries({ queryKey: claimsKey });
+    setDupState(null);
+  };
+
+  const handleKeepBoth = async () => {
+    if (!dupState) return;
+    await addMut.mutateAsync(dupState.newTitle);
+    setDupState(null);
+  };
+
   const claimsByItem = new Map<string, ItemClaim[]>();
   for (const c of claims) {
     const arr = claimsByItem.get(c.item_id) ?? [];
@@ -67,7 +94,7 @@ export function ItemsList({
 
   return (
     <div>
-      <AddItemForm onAdd={async t => { await addMut.mutateAsync(t); }} />
+      <AddItemForm onAdd={handleAdd} />
 
       {items.length === 0 && <p className="text-slate-500 text-sm">Пока пусто. Добавь первый пункт.</p>}
 
@@ -108,6 +135,17 @@ export function ItemsList({
           );
         })}
       </div>
+
+      {dupState && (
+        <DuplicateDialog
+          open={!!dupState}
+          existingTitle={dupState.existingTitle}
+          newTitle={dupState.newTitle}
+          onMerge={handleMerge}
+          onKeepBoth={handleKeepBoth}
+          onCancel={() => setDupState(null)}
+        />
+      )}
     </div>
   );
 }
