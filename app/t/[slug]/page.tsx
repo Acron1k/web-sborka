@@ -9,6 +9,7 @@ import { useCurrentFamily } from '@/lib/session-client';
 import { FamilyBadge } from '@/components/family-badge';
 import { ItemsList } from '@/components/items/items-list';
 import { PersonalList } from '@/components/items/personal-list';
+import { FoodList } from '@/components/items/food-list';
 import { useTripRealtime } from '@/lib/realtime';
 import Link from 'next/link';
 
@@ -66,7 +67,11 @@ export default function TripPage() {
           )}
         </TabsContent>
         <TabsContent value="food" className="p-4">
-          <p className="text-slate-500">Продукты — будет в Task 10</p>
+          <FoodList
+            tripId={data.trip.id}
+            families={data.families}
+            currentFamilyId={familyId as string}
+          />
         </TabsContent>
       </Tabs>
     </main>
