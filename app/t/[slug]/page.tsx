@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchTripBySlug } from '@/lib/queries/trip';
 import { useCurrentFamily } from '@/lib/session-client';
 import { FamilyBadge } from '@/components/family-badge';
+import { ItemsList } from '@/components/items/items-list';
 import Link from 'next/link';
 
 export default function TripPage() {
@@ -48,7 +49,12 @@ export default function TripPage() {
         </TabsList>
 
         <TabsContent value="common" className="p-4">
-          <p className="text-slate-500">Общий список — будет в Task 6</p>
+          <ItemsList
+            tripId={data.trip.id}
+            listType="common"
+            families={data.families}
+            currentFamilyId={familyId as string}
+          />
         </TabsContent>
         <TabsContent value="personal" className="p-4">
           <p className="text-slate-500">Личный список — будет в Task 9</p>
