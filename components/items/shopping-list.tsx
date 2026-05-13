@@ -12,10 +12,12 @@ import {
 } from '@/lib/queries/items';
 import { ItemRow } from './item-row';
 import { AddItemForm } from './add-item-form';
-import type { Family, ItemClaim, ListType } from '@/lib/db/types';
+import type { Family, Item, ItemClaim, ListType } from '@/lib/db/types';
 
 type StatusFilter = 'all' | 'pending' | 'purchased';
 type TypeFilter = 'all' | 'common' | 'food';
+
+type ShoppingData = { items: Item[]; claims: ItemClaim[] };
 
 export function ShoppingList({
   tripId,
@@ -29,7 +31,7 @@ export function ShoppingList({
   const qc = useQueryClient();
   const key = ['shopping', tripId];
 
-  const { data = { items: [], claims: [] } } = useQuery({
+  const { data = { items: [], claims: [] } } = useQuery<ShoppingData>({
     queryKey: key,
     queryFn: () => fetchShoppingItems(tripId),
   });
@@ -44,6 +46,7 @@ export function ShoppingList({
     qc.invalidateQueries({ queryKey: ['packing', tripId] });
   };
 
+  // Add — non-optimistic (server generates id). Just invalidate on success.
   const addMut = useMutation({
     mutationFn: async ({
       title,
@@ -67,27 +70,121 @@ export function ShoppingList({
     onSuccess: invalidateAll,
   });
 
+  // Purchase — toggles is_purchased flag on existing claim OR creates new claim.
+  // Optimistic: patch flag if claim exists, else insert temp claim.
   const purchaseMut = useMutation({
     mutationFn: ({ itemId, purchased }: { itemId: string; purchased: boolean }) =>
       markPurchasedByCurrentFamily(itemId, myFamilyId, purchased),
-    onSuccess: invalidateAll,
+    onMutate: async ({ itemId, purchased }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ShoppingData>(key);
+      qc.setQueryData<ShoppingData>(key, old => {
+        if (!old) return old;
+        const myExisting = old.claims.find(
+          c => c.item_id === itemId && c.family_id === myFamilyId
+        );
+        if (myExisting) {
+          return {
+            ...old,
+            claims: old.claims.map(c =>
+              c.id === myExisting.id ? { ...c, is_purchased: purchased } : c
+            ),
+          };
+        }
+        // No claim yet — insert optimistic one with temp id.
+        const tempClaim: ItemClaim = {
+          id: `temp-${crypto.randomUUID()}`,
+          item_id: itemId,
+          family_id: myFamilyId,
+          is_packed: false,
+          is_purchased: purchased,
+          claimed_at: new Date().toISOString(),
+        };
+        return { ...old, claims: [...old.claims, tempClaim] };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+    },
+    onSettled: invalidateAll,
   });
 
+  // Claim toggle — add/remove my claim for item.
   const claimMut = useMutation({
     mutationFn: ({ itemId, claimed }: { itemId: string; claimed: boolean }) =>
       toggleClaim(itemId, myFamilyId, claimed),
-    onSuccess: invalidateAll,
+    onMutate: async ({ itemId, claimed }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ShoppingData>(key);
+      qc.setQueryData<ShoppingData>(key, old => {
+        if (!old) return old;
+        if (claimed) {
+          // Add temp claim
+          const tempClaim: ItemClaim = {
+            id: `temp-${crypto.randomUUID()}`,
+            item_id: itemId,
+            family_id: myFamilyId,
+            is_packed: false,
+            is_purchased: false,
+            claimed_at: new Date().toISOString(),
+          };
+          return { ...old, claims: [...old.claims, tempClaim] };
+        }
+        return {
+          ...old,
+          claims: old.claims.filter(
+            c => !(c.item_id === itemId && c.family_id === myFamilyId)
+          ),
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+    },
+    onSettled: invalidateAll,
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof updateItem>[1] }) =>
       updateItem(id, patch),
-    onSuccess: invalidateAll,
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ShoppingData>(key);
+      qc.setQueryData<ShoppingData>(key, old => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map(i => (i.id === id ? { ...i, ...patch } : i)),
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+    },
+    onSettled: invalidateAll,
   });
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteItem(id),
-    onSuccess: invalidateAll,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ShoppingData>(key);
+      qc.setQueryData<ShoppingData>(key, old => {
+        if (!old) return old;
+        return {
+          items: old.items.filter(i => i.id !== id),
+          claims: old.claims.filter(c => c.item_id !== id),
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+    },
+    onSettled: invalidateAll,
   });
 
   const claimsByItem = useMemo(() => {

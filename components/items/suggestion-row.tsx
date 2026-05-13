@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DeleteConfirm } from './delete-confirm';
 import type { AISuggestion, Family, Importance } from '@/lib/db/types';
 
 const DOT: Record<Importance, string> = {
@@ -53,6 +54,7 @@ export function SuggestionRow({
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [claimedBy, setClaimedBy] = useState<string[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isPromoted = !!suggestion.added_to_list_at;
   const isPersonal = suggestion.list_type === 'personal';
@@ -135,7 +137,7 @@ export function SuggestionRow({
                 {suggestion.added_to_list_at && ` · ${timeAgo(suggestion.added_to_list_at)}`}
               </span>
               <button
-                onClick={() => onDelete(suggestion.id)}
+                onClick={() => setConfirmOpen(true)}
                 aria-label="Удалить подсказку"
                 className="mono-tag text-muted-foreground hover:text-destructive transition-colors ml-auto"
               >
@@ -154,7 +156,7 @@ export function SuggestionRow({
                 {isPersonal ? '+ к себе' : '+ добавить'}
               </button>
               <button
-                onClick={() => onDelete(suggestion.id)}
+                onClick={() => setConfirmOpen(true)}
                 aria-label="Удалить подсказку"
                 className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
               >
@@ -217,6 +219,13 @@ export function SuggestionRow({
           )}
         </div>
       </div>
+
+      <DeleteConfirm
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        itemTitle={suggestion.title}
+        onConfirm={() => onDelete(suggestion.id)}
+      />
     </li>
   );
 }

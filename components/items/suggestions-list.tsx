@@ -58,7 +58,18 @@ export function SuggestionsList({
   });
   const delMut = useMutation({
     mutationFn: (id: string) => deleteSuggestion(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: sugKey }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: sugKey });
+      const prev = qc.getQueryData<AISuggestion[]>(sugKey);
+      qc.setQueryData<AISuggestion[]>(sugKey, old =>
+        (old ?? []).filter(s => s.id !== id)
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(sugKey, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: sugKey }),
   });
 
   const famById = useMemo(

@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { AddItemForm } from './add-item-form';
 import { ClaimedReadonlyRow } from './claimed-readonly-row';
+import { DeleteConfirm } from './delete-confirm';
 import {
   fetchPersonalItems,
   fetchClaimedItemsForFamily,
@@ -24,6 +25,12 @@ type Props = {
   families: Family[];
 };
 
+type PackingData = {
+  items: Item[];
+  myClaims: ItemClaim[];
+  allClaims: ItemClaim[];
+};
+
 export function PackingList({ tripId, familyId, familyName, families }: Props) {
   const qc = useQueryClient();
 
@@ -35,7 +42,7 @@ export function PackingList({ tripId, familyId, familyName, families }: Props) {
     queryFn: () => fetchPersonalItems(tripId, familyId),
   });
 
-  const { data: packing = { items: [], myClaims: [], allClaims: [] } } = useQuery({
+  const { data: packing = { items: [], myClaims: [], allClaims: [] } } = useQuery<PackingData>({
     queryKey: packingKey,
     queryFn: () => fetchClaimedItemsForFamily(tripId, familyId),
   });
@@ -70,11 +77,25 @@ export function PackingList({ tripId, familyId, familyName, families }: Props) {
   const allDone = donePersonal + doneCommon + doneFood;
   const pct = allTotal === 0 ? 0 : Math.round((allDone / allTotal) * 100);
 
-  // Mutations
+  // ── Mutations (optimistic) ─────────────────────────────────────────────
+
   const togglePersonalMut = useMutation({
-    mutationFn: ({ id, done }: { id: string; done: boolean }) => togglePersonalDone(id, done),
-    onSuccess: () => qc.invalidateQueries({ queryKey: personalKey }),
+    mutationFn: ({ id, done }: { id: string; done: boolean }) =>
+      togglePersonalDone(id, done),
+    onMutate: async ({ id, done }) => {
+      await qc.cancelQueries({ queryKey: personalKey });
+      const prev = qc.getQueryData<Item[]>(personalKey);
+      qc.setQueryData<Item[]>(personalKey, old =>
+        (old ?? []).map(i => (i.id === id ? { ...i, is_done: done } : i))
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(personalKey, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: personalKey }),
   });
+
   const addPersonalMut = useMutation({
     mutationFn: (title: string) =>
       insertItem({
@@ -86,21 +107,69 @@ export function PackingList({ tripId, familyId, familyName, families }: Props) {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: personalKey }),
   });
+
   const delPersonalMut = useMutation({
     mutationFn: (id: string) => deleteItem(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: personalKey }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: personalKey });
+      const prev = qc.getQueryData<Item[]>(personalKey);
+      qc.setQueryData<Item[]>(personalKey, old => (old ?? []).filter(i => i.id !== id));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(personalKey, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: personalKey }),
   });
+
   const updatePersonalMut = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => updateItem(id, { title }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: personalKey }),
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      updateItem(id, { title }),
+    onMutate: async ({ id, title }) => {
+      await qc.cancelQueries({ queryKey: personalKey });
+      const prev = qc.getQueryData<Item[]>(personalKey);
+      qc.setQueryData<Item[]>(personalKey, old =>
+        (old ?? []).map(i => (i.id === id ? { ...i, title } : i))
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(personalKey, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: personalKey }),
   });
+
   const togglePackedMut = useMutation({
-    mutationFn: ({ id, packed }: { id: string; packed: boolean }) => toggleClaimPacked(id, packed),
-    onSuccess: () => qc.invalidateQueries({ queryKey: packingKey }),
+    mutationFn: ({ id, packed }: { id: string; packed: boolean }) =>
+      toggleClaimPacked(id, packed),
+    onMutate: async ({ id, packed }) => {
+      await qc.cancelQueries({ queryKey: packingKey });
+      const prev = qc.getQueryData<PackingData>(packingKey);
+      qc.setQueryData<PackingData>(packingKey, old => {
+        if (!old) return old;
+        return {
+          ...old,
+          myClaims: old.myClaims.map(c =>
+            c.id === id ? { ...c, is_packed: packed } : c
+          ),
+          allClaims: old.allClaims.map(c =>
+            c.id === id ? { ...c, is_packed: packed } : c
+          ),
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(packingKey, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: packingKey }),
   });
+
+  // ── UI state ───────────────────────────────────────────────────────────
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
 
   const startEdit = (item: Item) => {
     setEditingId(item.id);
@@ -222,7 +291,7 @@ export function PackingList({ tripId, familyId, familyName, families }: Props) {
                           ред.
                         </button>
                         <button
-                          onClick={() => delPersonalMut.mutate(item.id)}
+                          onClick={() => setDeleteTarget(item)}
                           aria-label="Удалить пункт"
                           className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
                         >
@@ -301,6 +370,16 @@ export function PackingList({ tripId, familyId, familyName, families }: Props) {
           </ul>
         )}
       </section>
+
+      {/* Delete confirm dialog */}
+      <DeleteConfirm
+        open={!!deleteTarget}
+        onOpenChange={v => !v && setDeleteTarget(null)}
+        itemTitle={deleteTarget?.title ?? ''}
+        onConfirm={() => {
+          if (deleteTarget) delPersonalMut.mutate(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }

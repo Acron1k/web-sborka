@@ -10,7 +10,7 @@ import {
   toggleClaim,
   updateItem,
 } from '@/lib/queries/items';
-import type { Family, ItemClaim, ListType } from '@/lib/db/types';
+import type { Family, Item, ItemClaim, ListType } from '@/lib/db/types';
 import { AddItemForm } from './add-item-form';
 import { ItemRow } from './item-row';
 import { findDuplicate } from '@/lib/duplicate';
@@ -72,19 +72,70 @@ export function ItemsList({
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteItem(id),
-    onSuccess: invalidateMutated,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: itemsKey });
+      await qc.cancelQueries({ queryKey: claimsKey });
+      const prevItems = qc.getQueryData<Item[]>(itemsKey);
+      const prevClaims = qc.getQueryData<ItemClaim[]>(claimsKey);
+      qc.setQueryData<Item[]>(itemsKey, old => (old ?? []).filter(i => i.id !== id));
+      qc.setQueryData<ItemClaim[]>(claimsKey, old =>
+        (old ?? []).filter(c => c.item_id !== id)
+      );
+      return { prevItems, prevClaims };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prevItems) qc.setQueryData(itemsKey, ctx.prevItems);
+      if (ctx?.prevClaims) qc.setQueryData(claimsKey, ctx.prevClaims);
+    },
+    onSettled: invalidateMutated,
   });
 
   const claimMut = useMutation({
     mutationFn: ({ id, claimed }: { id: string; claimed: boolean }) =>
       toggleClaim(id, currentFamilyId, claimed),
-    onSuccess: invalidateMutated,
+    onMutate: async ({ id, claimed }) => {
+      await qc.cancelQueries({ queryKey: claimsKey });
+      const prev = qc.getQueryData<ItemClaim[]>(claimsKey);
+      qc.setQueryData<ItemClaim[]>(claimsKey, old => {
+        const arr = old ?? [];
+        if (claimed) {
+          const tempClaim: ItemClaim = {
+            id: `temp-${crypto.randomUUID()}`,
+            item_id: id,
+            family_id: currentFamilyId,
+            is_packed: false,
+            is_purchased: false,
+            claimed_at: new Date().toISOString(),
+          };
+          return [...arr, tempClaim];
+        }
+        return arr.filter(
+          c => !(c.item_id === id && c.family_id === currentFamilyId)
+        );
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(claimsKey, ctx.prev);
+    },
+    onSettled: invalidateMutated,
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof updateItem>[1] }) =>
       updateItem(id, patch),
-    onSuccess: invalidateMutated,
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: itemsKey });
+      const prev = qc.getQueryData<Item[]>(itemsKey);
+      qc.setQueryData<Item[]>(itemsKey, old =>
+        (old ?? []).map(i => (i.id === id ? { ...i, ...patch } : i))
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(itemsKey, ctx.prev);
+    },
+    onSettled: invalidateMutated,
   });
 
   const [dupState, setDupState] = useState<{

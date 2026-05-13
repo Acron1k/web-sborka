@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DeleteConfirm } from './delete-confirm';
 import type { Family, Item, ItemClaim, Category } from '@/lib/db/types';
 
 type Props = {
@@ -48,6 +49,7 @@ export function ItemRow({
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editQty, setEditQty] = useState(item.qty ?? '');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const hasQty = item.list_type === 'food';
 
@@ -223,13 +225,20 @@ export function ItemRow({
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
-              onClick={onDelete}
+              onClick={() => setConfirmOpen(true)}
             >
               <span className="mono-tag">удалить</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <DeleteConfirm
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        itemTitle={item.title}
+        onConfirm={onDelete}
+      />
     </li>
   );
 }
