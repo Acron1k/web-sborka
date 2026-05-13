@@ -21,7 +21,7 @@ type Props = {
   showCategory?: boolean;
   onToggleClaim: () => void;
   onTogglePurchased?: () => void;
-  onUpdate: (patch: { title?: string; qty?: string | null; category?: Category }) => void;
+  onUpdate: (patch: { title?: string; qty?: string | null; category?: Category; needs_purchase?: boolean }) => void;
   onDelete: () => void;
 };
 
@@ -213,6 +213,13 @@ export function ItemRow({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setEditing(true)}>
               <span className="mono-tag">ред.</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onUpdate({ needs_purchase: !item.needs_purchase })}
+            >
+              <span className="mono-tag">
+                {item.needs_purchase ? 'убрать из закупки' : 'надо купить'}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
