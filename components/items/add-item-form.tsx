@@ -2,17 +2,31 @@
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { Family } from '@/lib/db/types';
 
 type Props = {
-  onAdd: (title: string, claimedBy: string[]) => void | Promise<void>;
+  onAdd: (
+    title: string,
+    claimedBy: string[],
+    needsPurchase: boolean
+  ) => void | Promise<void>;
   placeholder?: string;
   families?: Family[];
+  showPurchaseToggle?: boolean;
+  defaultNeedsPurchase?: boolean;
 };
 
-export function AddItemForm({ onAdd, placeholder = 'Например: Мангал', families }: Props) {
+export function AddItemForm({
+  onAdd,
+  placeholder = 'Например: Мангал',
+  families,
+  showPurchaseToggle = false,
+  defaultNeedsPurchase = false,
+}: Props) {
   const [value, setValue] = useState('');
   const [selectedFamilies, setSelectedFamilies] = useState<string[]>([]);
+  const [needsPurchase, setNeedsPurchase] = useState(defaultNeedsPurchase);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -20,9 +34,10 @@ export function AddItemForm({ onAdd, placeholder = 'Например: Манга
     const t = value.trim();
     if (!t) return;
     setBusy(true);
-    await onAdd(t, selectedFamilies);
+    await onAdd(t, selectedFamilies, needsPurchase);
     setValue('');
     setSelectedFamilies([]);
+    setNeedsPurchase(defaultNeedsPurchase);
     setBusy(false);
   };
 
@@ -81,6 +96,17 @@ export function AddItemForm({ onAdd, placeholder = 'Например: Манга
             })}
           </div>
         </div>
+      )}
+
+      {showPurchaseToggle && (
+        <label className="flex items-center gap-2 mt-3 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Checkbox
+            checked={needsPurchase}
+            onCheckedChange={v => setNeedsPurchase(!!v)}
+            className="rounded-sm border-[var(--rule)] data-[state=checked]:bg-foreground data-[state=checked]:border-foreground"
+          />
+          <span>надо купить</span>
+        </label>
       )}
     </form>
   );

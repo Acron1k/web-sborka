@@ -30,6 +30,7 @@ export type Item = {
   notes: string | null;
   created_by_family_id: string | null;
   is_done: boolean;
+  needs_purchase: boolean;
   created_at: string;
 };
 
@@ -39,6 +40,7 @@ export type ItemClaim = {
   family_id: string;
   claimed_at: string;
   is_packed: boolean;
+  is_purchased: boolean;
 };
 
 export type AISuggestion = {
@@ -72,16 +74,21 @@ export type Database = {
       };
       items: {
         Row: Item;
-        Insert: Omit<Item, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Insert: Omit<Item, 'id' | 'created_at' | 'needs_purchase'> & {
+          id?: string;
+          created_at?: string;
+          needs_purchase?: boolean;
+        };
         Update: Partial<Item>;
         Relationships: [];
       };
       item_claims: {
         Row: ItemClaim;
-        Insert: Omit<ItemClaim, 'id' | 'claimed_at' | 'is_packed'> & {
+        Insert: Omit<ItemClaim, 'id' | 'claimed_at' | 'is_packed' | 'is_purchased'> & {
           id?: string;
           claimed_at?: string;
           is_packed?: boolean;
+          is_purchased?: boolean;
         };
         Update: Partial<ItemClaim>;
         Relationships: [];

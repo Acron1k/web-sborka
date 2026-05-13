@@ -32,6 +32,7 @@ export async function insertItem(payload: {
   category?: Category | null;
   family_id?: string | null;
   created_by_family_id: string;
+  needs_purchase?: boolean;
 }): Promise<Item> {
   const { data, error } = await supabase
     .from('items')
@@ -41,6 +42,7 @@ export async function insertItem(payload: {
       family_id: null,
       notes: null,
       is_done: false,
+      needs_purchase: false,
       ...payload,
     })
     .select()
@@ -56,10 +58,41 @@ export async function deleteItem(itemId: string): Promise<void> {
 
 export async function updateItem(
   itemId: string,
-  patch: Partial<Pick<Item, 'title' | 'qty' | 'category'>>
+  patch: Partial<Pick<Item, 'title' | 'qty' | 'category' | 'needs_purchase'>>
 ): Promise<void> {
   const { error } = await supabase.from('items').update(patch).eq('id', itemId);
   if (error) throw error;
+}
+
+/**
+ * Mark item as purchased by current family.
+ * If no claim from current family — create one with is_purchased=true.
+ * If claim exists — just set is_purchased.
+ */
+export async function markPurchasedByCurrentFamily(
+  itemId: string,
+  familyId: string,
+  purchased: boolean
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from('item_claims')
+    .select('id')
+    .eq('item_id', itemId)
+    .eq('family_id', familyId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('item_claims')
+      .update({ is_purchased: purchased })
+      .eq('id', existing.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('item_claims')
+      .insert({ item_id: itemId, family_id: familyId, is_purchased: purchased });
+    if (error && error.code !== '23505') throw error;
+  }
 }
 
 export async function insertItemWithClaims(

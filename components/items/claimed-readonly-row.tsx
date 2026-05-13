@@ -32,9 +32,9 @@ export function ClaimedReadonlyRow({ item, claim, otherFamilies, onTogglePacked 
       />
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
           <p
-            className={`flex-1 text-base leading-tight ${
+            className={`flex-1 text-base leading-tight min-w-0 ${
               packed ? 'line-through text-muted-foreground' : 'ink'
             }`}
           >
@@ -43,6 +43,9 @@ export function ClaimedReadonlyRow({ item, claim, otherFamilies, onTogglePacked 
               <span className="text-muted-foreground font-normal"> · {item.qty}</span>
             )}
           </p>
+          {item.needs_purchase && (
+            <span className="mono-tag text-primary shrink-0">закупка</span>
+          )}
           {catLabel && (
             <span className="mono-tag text-muted-foreground shrink-0">[{catLabel}]</span>
           )}

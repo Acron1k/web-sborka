@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input';
-import { FamilyBadge } from '@/components/family-badge';
 import {
   fetchItems,
   fetchClaims,
@@ -12,8 +10,9 @@ import {
   toggleClaim,
   updateItem,
 } from '@/lib/queries/items';
-import type { Family, Item, ItemClaim, ListType } from '@/lib/db/types';
+import type { Family, ItemClaim, ListType } from '@/lib/db/types';
 import { AddItemForm } from './add-item-form';
+import { ItemRow } from './item-row';
 import { findDuplicate } from '@/lib/duplicate';
 import { DuplicateDialog } from './duplicate-dialog';
 
@@ -41,41 +40,51 @@ export function ItemsList({
     queryFn: () => fetchClaims(tripId),
   });
 
+  const invalidateMutated = () => {
+    qc.invalidateQueries({ queryKey: itemsKey });
+    qc.invalidateQueries({ queryKey: claimsKey });
+    qc.invalidateQueries({ queryKey: ['shopping', tripId] });
+    qc.invalidateQueries({ queryKey: ['packing', tripId] });
+  };
+
   const addMut = useMutation({
-    mutationFn: ({ title, claimedBy }: { title: string; claimedBy: string[] }) =>
+    mutationFn: ({
+      title,
+      claimedBy,
+      needsPurchase,
+    }: {
+      title: string;
+      claimedBy: string[];
+      needsPurchase: boolean;
+    }) =>
       insertItemWithClaims(
         {
           trip_id: tripId,
           list_type: listType,
           title,
+          needs_purchase: needsPurchase,
           created_by_family_id: currentFamilyId,
         },
         claimedBy
       ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: itemsKey });
-      qc.invalidateQueries({ queryKey: claimsKey });
-    },
+    onSuccess: invalidateMutated,
   });
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteItem(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: itemsKey });
-      qc.invalidateQueries({ queryKey: claimsKey });
-    },
+    onSuccess: invalidateMutated,
   });
 
   const claimMut = useMutation({
     mutationFn: ({ id, claimed }: { id: string; claimed: boolean }) =>
       toggleClaim(id, currentFamilyId, claimed),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claimsKey }),
+    onSuccess: invalidateMutated,
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, ...patch }: { id: string } & Partial<Pick<Item, 'title' | 'qty' | 'category'>>) =>
+    mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof updateItem>[1] }) =>
       updateItem(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: itemsKey }),
+    onSuccess: invalidateMutated,
   });
 
   const [dupState, setDupState] = useState<{
@@ -83,11 +92,10 @@ export function ItemsList({
     existingTitle: string;
     newTitle: string;
     claimedBy: string[];
+    needsPurchase: boolean;
   } | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
 
-  const handleAdd = async (title: string, claimedBy: string[]) => {
+  const handleAdd = async (title: string, claimedBy: string[], needsPurchase: boolean) => {
     const dup = findDuplicate(items.map(i => ({ id: i.id, title: i.title })), title);
     if (dup) {
       setDupState({
@@ -95,33 +103,30 @@ export function ItemsList({
         existingTitle: dup.title,
         newTitle: title,
         claimedBy,
+        needsPurchase,
       });
       return;
     }
-    await addMut.mutateAsync({ title, claimedBy });
+    await addMut.mutateAsync({ title, claimedBy, needsPurchase });
   };
 
   const handleMerge = async () => {
     if (!dupState) return;
     await toggleClaim(dupState.existingId, currentFamilyId, true);
     qc.invalidateQueries({ queryKey: claimsKey });
+    qc.invalidateQueries({ queryKey: ['shopping', tripId] });
+    qc.invalidateQueries({ queryKey: ['packing', tripId] });
     setDupState(null);
   };
 
   const handleKeepBoth = async () => {
     if (!dupState) return;
-    await addMut.mutateAsync({ title: dupState.newTitle, claimedBy: dupState.claimedBy });
+    await addMut.mutateAsync({
+      title: dupState.newTitle,
+      claimedBy: dupState.claimedBy,
+      needsPurchase: dupState.needsPurchase,
+    });
     setDupState(null);
-  };
-
-  const startEdit = (item: Item) => {
-    setEditingId(item.id);
-    setEditValue(item.title);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValue('');
   };
 
   const claimsByItem = new Map<string, ItemClaim[]>();
@@ -130,7 +135,6 @@ export function ItemsList({
     arr.push(c);
     claimsByItem.set(c.item_id, arr);
   }
-  const famById = new Map(families.map(f => [f.id, f] as const));
 
   return (
     <div>
@@ -145,7 +149,12 @@ export function ItemsList({
         )}
       </div>
 
-      <AddItemForm onAdd={handleAdd} families={families} />
+      <AddItemForm
+        onAdd={handleAdd}
+        families={families}
+        showPurchaseToggle
+        defaultNeedsPurchase={false}
+      />
 
       {items.length === 0 && (
         <p className="mono-tag text-muted-foreground py-8">
@@ -154,100 +163,22 @@ export function ItemsList({
       )}
 
       <ul className="md:grid md:grid-cols-2 md:gap-x-10">
-        {items.map((item, idx) => {
+        {items.map(item => {
           const itemClaims = claimsByItem.get(item.id) ?? [];
           const iTake = itemClaims.some(c => c.family_id === currentFamilyId);
-          const someoneElse = !iTake && itemClaims.length > 0;
-          const noOne = itemClaims.length === 0;
-          const claimLabel = iTake ? 'я не беру' : someoneElse ? 'беру тоже' : 'беру я';
-          const isEditing = editingId === item.id;
-
           return (
-            <li
+            <ItemRow
               key={item.id}
-              className={`group hairline-b ${idx === 0 ? 'hairline-t md:[&:nth-child(2)]:hairline-t' : ''} py-4 flex items-center gap-4`}
-            >
-              {isEditing ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const v = editValue.trim();
-                    if (!v) return;
-                    updateMut.mutate({ id: item.id, title: v });
-                    cancelEdit();
-                  }}
-                  className="flex-1 flex items-center gap-2"
-                >
-                  <Input
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') cancelEdit();
-                    }}
-                    className="editorial-input h-9 text-base flex-1"
-                  />
-                  <button
-                    type="submit"
-                    className="mono-tag text-primary hover:text-foreground px-2 py-2"
-                  >
-                    сохр.
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="mono-tag text-muted-foreground hover:text-foreground px-2 py-2"
-                  >
-                    отмена
-                  </button>
-                </form>
-              ) : (
-                <>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base ink leading-tight truncate">{item.title}</p>
-                    <div className="mt-2 flex items-center gap-2 min-h-[20px]">
-                      {noOne ? (
-                        <span className="mono-tag text-destructive">свободно</span>
-                      ) : (
-                        <div className="flex -space-x-1.5">
-                          {itemClaims.map(c => {
-                            const f = famById.get(c.family_id);
-                            return f ? <FamilyBadge key={c.id} family={f} size={18} /> : null;
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
-                      className={`mono-tag px-3 py-2 rounded-full transition-colors ${
-                        iTake
-                          ? 'border border-[var(--rule)] text-foreground hover:bg-foreground/[0.04]'
-                          : 'bg-foreground text-background hover:bg-foreground/90'
-                      }`}
-                    >
-                      {claimLabel}
-                    </button>
-                    <button
-                      onClick={() => startEdit(item)}
-                      aria-label="Редактировать пункт"
-                      className="mono-tag text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
-                    >
-                      ред.
-                    </button>
-                    <button
-                      onClick={() => delMut.mutate(item.id)}
-                      aria-label="Удалить пункт"
-                      className="mono-tag text-muted-foreground hover:text-destructive transition-colors px-2 py-2"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </>
-              )}
-            </li>
+              item={item}
+              claims={itemClaims}
+              families={families}
+              myFamilyId={currentFamilyId}
+              mode="standard"
+              showCategory={false}
+              onToggleClaim={() => claimMut.mutate({ id: item.id, claimed: !iTake })}
+              onUpdate={(patch) => updateMut.mutate({ id: item.id, patch })}
+              onDelete={() => delMut.mutate(item.id)}
+            />
           );
         })}
       </ul>

@@ -22,6 +22,7 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
         () => {
           qc.invalidateQueries({ queryKey: ['items', tripId] });
           qc.invalidateQueries({ queryKey: ['packing', tripId] });
+          qc.invalidateQueries({ queryKey: ['shopping', tripId] });
         }
       )
       .on(
@@ -30,6 +31,7 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
         () => {
           qc.invalidateQueries({ queryKey: ['claims', tripId] });
           qc.invalidateQueries({ queryKey: ['packing', tripId] });
+          qc.invalidateQueries({ queryKey: ['shopping', tripId] });
         }
       )
       .on(

@@ -9,18 +9,20 @@ import { FamilyBadge } from '@/components/family-badge';
 import { ItemsList } from '@/components/items/items-list';
 import { PackingList } from '@/components/items/packing-list';
 import { FoodList } from '@/components/items/food-list';
+import { ShoppingList } from '@/components/items/shopping-list';
 import { SuggestionsList } from '@/components/items/suggestions-list';
 import { useTripRealtime } from '@/lib/realtime';
 import { LiveDot } from '@/components/live-dot';
 import Link from 'next/link';
 
-type Tab = 'common' | 'personal' | 'food' | 'ai';
+type Tab = 'common' | 'personal' | 'shopping' | 'food' | 'ai';
 
 const TABS: { id: Tab; num: string; label: string; sublabel: string }[] = [
   { id: 'common', num: '01', label: 'Общее', sublabel: 'на всех' },
   { id: 'personal', num: '02', label: 'Личное', sublabel: 'твоё' },
-  { id: 'food', num: '03', label: 'Еда', sublabel: 'продукты и питьё' },
-  { id: 'ai', num: '04', label: 'ИИ', sublabel: 'подсказки' },
+  { id: 'shopping', num: '03', label: 'Купить', sublabel: 'расходники' },
+  { id: 'food', num: '04', label: 'Еда', sublabel: 'продукты и питьё' },
+  { id: 'ai', num: '05', label: 'ИИ', sublabel: 'подсказки' },
 ];
 
 export default function TripPage() {
@@ -65,6 +67,15 @@ export default function TripPage() {
           familyId={myFamily.id}
           familyName={myFamily.name}
           families={data.families}
+        />
+      );
+    }
+    if (tab === 'shopping') {
+      return (
+        <ShoppingList
+          tripId={data.trip.id}
+          families={data.families}
+          myFamilyId={familyId as string}
         />
       );
     }
@@ -132,14 +143,14 @@ export default function TripPage() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 py-3 text-center transition-all relative ${
+                  className={`flex-1 py-3 text-center transition-all relative min-w-0 ${
                     active
                       ? 'ink border-b-2 border-foreground -mb-px'
                       : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent -mb-px'
                   }`}
                 >
                   <span className="mono-tag block mb-0.5">{t.num}</span>
-                  <span className="text-xs sm:text-sm tracking-tight">{t.label}</span>
+                  <span className="text-[11px] sm:text-sm tracking-tight">{t.label}</span>
                 </button>
               );
             })}
