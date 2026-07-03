@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase/client';
+import { api, ApiError } from '@/lib/api-client';
 import { slugify } from '@/lib/slugify';
 import { FAMILY_COLORS } from '@/lib/colors';
 
@@ -32,32 +32,23 @@ export default function HomePage() {
     setLoading(true);
     const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`;
 
-    const { data: trip, error: tripErr } = await supabase
-      .from('trips')
-      .insert({ slug, name: name.trim(), starts_on: startsOn || null, ends_on: endsOn || null })
-      .select()
-      .single();
-
-    if (tripErr || !trip) {
-      setError(tripErr?.message ?? 'Ошибка создания поездки');
+    try {
+      await api.post('/api/trips', {
+        slug,
+        name: name.trim(),
+        starts_on: startsOn || null,
+        ends_on: endsOn || null,
+        families: cleanFamilies.map((fname, i) => ({
+          name: fname,
+          color: FAMILY_COLORS[i % FAMILY_COLORS.length],
+          position: i,
+        })),
+      });
+      router.push(`/t/${slug}/join`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Ошибка создания поездки');
       setLoading(false);
-      return;
     }
-
-    const familiesPayload = cleanFamilies.map((fname, i) => ({
-      trip_id: trip.id,
-      name: fname,
-      color: FAMILY_COLORS[i % FAMILY_COLORS.length],
-      position: i,
-    }));
-    const { error: famErr } = await supabase.from('families').insert(familiesPayload);
-    if (famErr) {
-      setError(famErr.message);
-      setLoading(false);
-      return;
-    }
-
-    router.push(`/t/${slug}/join`);
   };
 
   return (
