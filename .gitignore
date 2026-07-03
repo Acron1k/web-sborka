@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env*.example
 
+# supabase data export (contains family names — not for git)
+data-export.json
+
 # vercel
 .vercel
 
