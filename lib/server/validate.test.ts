@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, isListType, isCategoryOrNull, isImportance } from './validate';
+import { isUuid, isListType, isCategoryOrNull, isImportance, isNonEmptyString } from './validate';
 
 describe('isUuid', () => {
   it('принимает валидный uuid', () => {
@@ -43,5 +43,17 @@ describe('isImportance', () => {
   });
   it('отклоняет прочее', () => {
     expect(isImportance('meh')).toBe(false);
+  });
+});
+
+describe('isNonEmptyString', () => {
+  it('принимает непустые строки', () => {
+    expect(isNonEmptyString('ok')).toBe(true);
+  });
+  it('отклоняет пустоту, whitespace и не-строки', () => {
+    expect(isNonEmptyString('')).toBe(false);
+    expect(isNonEmptyString('   ')).toBe(false);
+    expect(isNonEmptyString(null)).toBe(false);
+    expect(isNonEmptyString(42)).toBe(false);
   });
 });
