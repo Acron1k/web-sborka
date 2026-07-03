@@ -18,8 +18,12 @@ export async function POST(request: Request) {
   if (!Array.isArray(body.families) || body.families.length < 2) {
     return badRequest('Нужно минимум 2 семьи');
   }
-  if (body.families.some((f) => !isNonEmptyString(f.name) || !isNonEmptyString(f.color))) {
-    return badRequest('У каждой семьи должны быть name и color');
+  if (
+    body.families.some(
+      (f) => !isNonEmptyString(f.name) || !isNonEmptyString(f.color) || !Number.isInteger(f.position)
+    )
+  ) {
+    return badRequest('У каждой семьи должны быть name, color и целочисленный position');
   }
 
   const client = await pool.connect();
