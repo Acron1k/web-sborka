@@ -32,6 +32,7 @@ async function fetchAll(table) {
         Range: `${from}-${from + PAGE - 1}`,
       },
     });
+    if (res.status === 416) break; // Range за концом данных (ровно N×PAGE строк) — конец
     if (!res.ok && res.status !== 206) {
       throw new Error(`${table}: HTTP ${res.status} ${await res.text()}`);
     }
