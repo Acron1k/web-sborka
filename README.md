@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Сборы с палатками
 
-## Getting Started
+**Совместный список вещей, продуктов и покупок для выезда несколькими семьями.**
 
-First, run the development server:
+Создаёшь поездку, кидаешь семьям ссылку — каждый видит, кто что берёт, что куплено и что осталось упаковать. Изменения синхронизируются между участниками в реальном времени.
+
+## Возможности
+
+- Три списка: общие вещи, личные сборы, еда (с категориями)
+- Клеймы «кто берёт» и отметки «куплено» / «упаковано» по семьям
+- Список покупок из вещей с флагом «надо купить»
+- AI-подсказки: промпт копируется ассистенту, ответ вставляется обратно и разбирается в предложения
+- Live-синхронизация между вкладками и устройствами (SSE)
+- Без регистрации: доступ по ссылке поездки + выбор семьи (cookie)
+
+## Быстрый старт (локально)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose -f docker-compose.dev.yml up -d   # Postgres 16 на :54329, схема применится сама
+cp .env.local.example .env.local
+npm install
+npm run dev                                       # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Подлить реальные данные из бэкапа: `DATABASE_URL=postgresql://sbory:sbory@localhost:54329/sbory node scripts/import-db.mjs` (нужен `data-export.json`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Требования
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 22+
+- Docker (для локального Postgres и прод-сборки)
 
-## Learn More
+## Архитектура
 
-To learn more about Next.js, take a look at the following resources:
+```
+Браузер ──HTTPS──> nginx ──> Next.js (standalone, Docker)
+                               ├─ route handlers /api/*  (валидация на границе, pg Pool)
+                               ├─ SSE /api/events  ←  LISTEN/NOTIFY (триггеры в схеме)
+                               └─> Postgres 16 (Docker, наружу не торчит)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Клиент — React Query поверх `lib/queries/*`; realtime — `useTripRealtime` (EventSource → инвалидация кэшей). Схема БД: `db/schema.sql`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Деплой
 
-## Deploy on Vercel
+Прод: **https://sbory.mirobase.ru** (vps-ru-1). Один шаг:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+bash scripts/deploy.sh   # локальная сборка образа → доставка по SSH → docker compose up -d
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Детали серверного контура (nginx/SNI, сертификаты, секреты, импорт данных) — в [deploy/README.md](deploy/README.md).
+
+## Стек
+
+| Слой | Технологии |
+|------|-----------|
+| Frontend | Next.js 16 (App Router), React 19, Tailwind 4, React Query 5 |
+| Backend | Next.js route handlers, `pg`, Postgres 16 |
+| Realtime | Postgres LISTEN/NOTIFY → Server-Sent Events |
+| Деплой | Docker (standalone), nginx, Let's Encrypt |
+
+## Тесты
+
+```bash
+npm test          # vitest
+npx tsc --noEmit  # типы
+```

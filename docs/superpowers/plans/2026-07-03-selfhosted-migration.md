@@ -2090,6 +2090,8 @@ git commit -m "feat: docker build and server deploy configs"
 
 ## Задача 13: Провижининг сервера (vps-ru-1)
 
+> **⚠️ ИСПОЛНЕНО С ОТКЛОНЕНИЕМ.** Шаги 5-6 ниже (nginx на 80/443 + certbot as-is) не соответствуют фактическому контуру сервера: порт 443 занят SNI-stream-роутером, TLS сайтов терминируется на 8080, после certbot listen-директивы переносились вручную. Актуальный runbook — `deploy/README.md`; актуальный vhost — `deploy/nginx-sbory.conf`.
+
 **Files:**
 - Create: `scripts/deploy.sh`
 
