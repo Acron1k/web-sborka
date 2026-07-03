@@ -1,15 +1,9 @@
 import { supabase } from '@/lib/supabase/client';
+import { api } from '@/lib/api-client';
 import type { Item, ItemClaim, ListType, Category } from '@/lib/db/types';
 
 export async function fetchItems(tripId: string, listType: ListType): Promise<Item[]> {
-  const { data, error } = await supabase
-    .from('items')
-    .select('*')
-    .eq('trip_id', tripId)
-    .eq('list_type', listType)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  return api.get<Item[]>(`/api/items?tripId=${tripId}&listType=${listType}`);
 }
 
 export async function fetchClaims(tripId: string): Promise<ItemClaim[]> {
@@ -34,34 +28,18 @@ export async function insertItem(payload: {
   created_by_family_id: string;
   needs_purchase?: boolean;
 }): Promise<Item> {
-  const { data, error } = await supabase
-    .from('items')
-    .insert({
-      qty: null,
-      category: null,
-      family_id: null,
-      notes: null,
-      is_done: false,
-      needs_purchase: false,
-      ...payload,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return api.post<Item>('/api/items', payload);
 }
 
 export async function deleteItem(itemId: string): Promise<void> {
-  const { error } = await supabase.from('items').delete().eq('id', itemId);
-  if (error) throw error;
+  await api.del(`/api/items/${itemId}`);
 }
 
 export async function updateItem(
   itemId: string,
   patch: Partial<Pick<Item, 'title' | 'qty' | 'category' | 'needs_purchase'>>
 ): Promise<void> {
-  const { error } = await supabase.from('items').update(patch).eq('id', itemId);
-  if (error) throw error;
+  await api.patch(`/api/items/${itemId}`, patch);
 }
 
 /**
@@ -99,14 +77,7 @@ export async function insertItemWithClaims(
   payload: Parameters<typeof insertItem>[0],
   familyIds: string[]
 ): Promise<Item> {
-  const item = await insertItem(payload);
-  if (familyIds.length > 0) {
-    const claims = familyIds.map(family_id => ({ item_id: item.id, family_id }));
-    const { error } = await supabase.from('item_claims').insert(claims);
-    // 23505 = unique violation — игнорим
-    if (error && error.code !== '23505') throw error;
-  }
-  return item;
+  return api.post<Item>('/api/items', { ...payload, claimFamilyIds: familyIds });
 }
 
 export async function toggleClaim(itemId: string, familyId: string, claimed: boolean): Promise<void> {
@@ -125,20 +96,11 @@ export async function toggleClaim(itemId: string, familyId: string, claimed: boo
 }
 
 export async function fetchPersonalItems(tripId: string, familyId: string): Promise<Item[]> {
-  const { data, error } = await supabase
-    .from('items')
-    .select('*')
-    .eq('trip_id', tripId)
-    .eq('list_type', 'personal')
-    .eq('family_id', familyId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  return api.get<Item[]>(`/api/items?tripId=${tripId}&listType=personal&familyId=${familyId}`);
 }
 
 export async function togglePersonalDone(itemId: string, done: boolean): Promise<void> {
-  const { error } = await supabase.from('items').update({ is_done: done }).eq('id', itemId);
-  if (error) throw error;
+  await api.patch(`/api/items/${itemId}`, { is_done: done });
 }
 
 export async function fetchClaimedItemsForFamily(
