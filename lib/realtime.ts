@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase/client';
 
 export type RealtimeStatus = 'idle' | 'connecting' | 'live' | 'error';
 
@@ -14,48 +13,36 @@ export function useTripRealtime(tripId: string): RealtimeStatus {
     if (!tripId) return;
     setStatus('connecting');
 
-    const channel = supabase
-      .channel(`trip-${tripId}`)
-      .on(
-        'postgres_changes' as never,
-        { event: '*', schema: 'public', table: 'items', filter: `trip_id=eq.${tripId}` } as never,
-        () => {
+    const es = new EventSource(`/api/events?tripId=${tripId}`);
+
+    es.onopen = () => setStatus('live');
+    // EventSource реконнектится сам; на время обрыва показываем error
+    es.onerror = () => setStatus('error');
+
+    es.addEventListener('change', (e) => {
+      const { table } = JSON.parse((e as MessageEvent).data) as { table: string };
+      switch (table) {
+        case 'items':
           qc.invalidateQueries({ queryKey: ['items', tripId] });
           qc.invalidateQueries({ queryKey: ['packing', tripId] });
           qc.invalidateQueries({ queryKey: ['shopping', tripId] });
-        }
-      )
-      .on(
-        'postgres_changes' as never,
-        { event: '*', schema: 'public', table: 'item_claims' } as never,
-        () => {
+          break;
+        case 'item_claims':
           qc.invalidateQueries({ queryKey: ['claims', tripId] });
           qc.invalidateQueries({ queryKey: ['packing', tripId] });
           qc.invalidateQueries({ queryKey: ['shopping', tripId] });
-        }
-      )
-      .on(
-        'postgres_changes' as never,
-        { event: '*', schema: 'public', table: 'families', filter: `trip_id=eq.${tripId}` } as never,
-        () => {
+          break;
+        case 'families':
           qc.invalidateQueries({ queryKey: ['trip'] });
-        }
-      )
-      .on(
-        'postgres_changes' as never,
-        { event: '*', schema: 'public', table: 'ai_suggestions', filter: `trip_id=eq.${tripId}` } as never,
-        () => {
+          break;
+        case 'ai_suggestions':
           qc.invalidateQueries({ queryKey: ['suggestions', tripId] });
-        }
-      )
-      .subscribe((subStatus) => {
-        if (subStatus === 'SUBSCRIBED') setStatus('live');
-        else if (subStatus === 'CHANNEL_ERROR' || subStatus === 'TIMED_OUT') setStatus('error');
-        else if (subStatus === 'CLOSED') setStatus('idle');
-      });
+          break;
+      }
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      es.close();
       setStatus('idle');
     };
   }, [tripId, qc]);
