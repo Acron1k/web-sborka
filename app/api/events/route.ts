@@ -25,6 +25,17 @@ export async function GET(request: Request) {
       const unsubscribe = await tripListener.subscribe(tripId, (table) => {
         send(`event: change\ndata: ${JSON.stringify({ table })}\n\n`);
       });
+      // Клиент мог отвалиться, пока ждали подписку (окно реконнекта БД) —
+      // abort-листенер ниже уже не сработает, прибираемся сами
+      if (request.signal.aborted) {
+        unsubscribe();
+        try {
+          controller.close();
+        } catch {
+          // уже закрыт
+        }
+        return;
+      }
       const heartbeat = setInterval(() => send(': ping\n\n'), 25_000);
       cleanup = () => {
         closed = true;

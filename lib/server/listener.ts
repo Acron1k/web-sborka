@@ -11,7 +11,12 @@ class TripListener {
     if (this.client) return;
     if (this.connecting) return this.connecting;
     this.connecting = (async () => {
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        // idle LISTEN-соединение без keepalive умирает молча при half-open TCP
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10_000,
+      });
       client.on('notification', (msg) => {
         if (!msg.payload) return;
         try {
