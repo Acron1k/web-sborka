@@ -29,6 +29,12 @@ export async function POST(
       return notFound('Suggestion не найден');
     }
     const s = rows[0];
+    // Уже промоучен (двойной клик / конкурентный запрос) — идемпотентный no-op,
+    // иначе for update не спасает от дубликата item
+    if (s.added_to_list_at !== null) {
+      await client.query('rollback');
+      return new Response(null, { status: 204 });
+    }
     const isPersonal = s.list_type === 'personal';
     const { rows: itemRows } = await client.query<{ id: string }>(
       `insert into items
